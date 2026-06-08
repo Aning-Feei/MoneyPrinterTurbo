@@ -58,11 +58,11 @@
 | 目标时长 | 合理图片数量范围 |
 |---|---:|
 | 30 秒 | 6-10 张 |
-| 40 秒 | 7-12 张 |
+| 40 秒 | 7-13 张 |
 | 50 秒 | 9-16 张 |
 | 60 秒 | 10-20 张 |
 
-如果继续保留当前最大 12 张限制，50 秒和 60 秒仍可生成，但需要更谨慎控制文案和节奏。
+代码实现按公式计算范围，因此 40 秒当前允许最多 13 张。旧文档中 40 秒写作 7-12 张时，应以后续实现为准统一为 7-13 张。
 
 图片太少应作为 error：
 
@@ -77,6 +77,24 @@ image_count > floor(target_duration_seconds / 3)
 ```
 
 旧样本缺少 `target_duration_seconds` 时，当前阶段可先兼容并提示 warning；新样本必须显式填写。
+
+缺少 `target_duration_seconds` 时，validator 当前默认按 30 秒继续校验，并输出 warning：
+
+- `missing_target_duration_seconds`
+
+非法值应输出 error：
+
+- `invalid_target_duration_seconds`
+
+图片数量低于目标时长要求时应输出 error：
+
+- `too_few_images_for_target_duration`
+
+图片数量高于目标时长建议范围时应输出 warning：
+
+- `too_many_images_for_target_duration`
+
+validator 通过条件为没有 error；warning 会写入报告，但不应导致旧样本失败。
 
 ## 命名类别规则
 

@@ -607,3 +607,34 @@
   - 未修改 MoneyPrinterTurbo 原业务代码
   - 未安装依赖
   - 未调用外部 API
+
+## Step 2-1 - validator 目标时长与动态图片数量范围校验
+
+- 本次目标：
+  - 只实现 validator 层
+  - 支持 `target_duration_seconds`
+  - 根据目标时长动态校验图片数量范围
+  - 暂不修改 preflight/checklist 逻辑
+- 允许修改：
+  - restaurant_engine/models.py
+  - restaurant_engine/validator.py
+  - restaurant_docs/VALIDATOR_SPEC.md
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- 新增规则：
+  - 合法目标时长为 30、40、50、60
+  - 缺少 `target_duration_seconds` 时输出 warning，不让旧样本失败
+  - 缺少时默认按 30 秒计算后续建议
+  - 非法值输出 error
+  - 图片太少输出 `too_few_images_for_target_duration`
+  - 图片太多输出 `too_many_images_for_target_duration` warning
+- 动态范围公式：
+  - min_images_for_duration = ceil(target_duration_seconds / 6)
+  - max_images_for_duration = floor(target_duration_seconds / 3)
+  - effective_min_images = max(6, min_images_for_duration)
+- 保持不变：
+  - 不修改 MoneyPrinterTurbo 原业务代码
+  - 不修改 preflight.py
+  - 不修改 webui_checklist.py
+  - 不安装依赖
+  - 不调用外部 API

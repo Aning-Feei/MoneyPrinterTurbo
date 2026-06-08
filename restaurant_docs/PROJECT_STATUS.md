@@ -5,8 +5,8 @@
 - 项目名称：餐饮 AI 宣传视频生成系统
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
-- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（目标时长规则设计中）
-- 当前下一步：先在规格文档中引入 target_duration_seconds、动态 video_clip_duration、图片数量范围和旁白字数上限；后续再实现代码，不改 MoneyPrinterTurbo 原业务代码。
+- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（validator 目标时长校验实现中）
+- 当前下一步：先完成 validator 层 target_duration_seconds 和动态图片数量范围校验；暂不修改 preflight/checklist，不改 MoneyPrinterTurbo 原业务代码。
 
 ## 当前样本项目
 
@@ -487,3 +487,24 @@ project.json
   - 先更新规格文档
   - 暂不修改 restaurant_engine 代码
   - 暂不修改 MoneyPrinterTurbo 原业务代码
+
+## Step 2-1 validator 目标时长校验
+
+- 当前目标：
+  - 在 validator 层支持 `target_duration_seconds`
+  - 合法值为 30、40、50、60
+  - 旧样本缺少该字段时输出 warning，不阻断通过
+  - 缺少字段时默认按 30 秒计算图片数量范围
+- 新增动态图片数量范围：
+  - min_images_for_duration = ceil(target_duration_seconds / 6)
+  - max_images_for_duration = floor(target_duration_seconds / 3)
+  - effective_min_images = max(6, min_images_for_duration)
+- 新增 issue：
+  - missing_target_duration_seconds：warning
+  - invalid_target_duration_seconds：error
+  - too_few_images_for_target_duration：error
+  - too_many_images_for_target_duration：warning
+- 当前边界：
+  - 只改 validator 相关代码和文档
+  - 不修改 preflight/checklist 逻辑
+  - 不修改 MoneyPrinterTurbo 原业务代码

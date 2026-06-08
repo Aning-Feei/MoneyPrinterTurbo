@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,11 @@ REQUIRED_FIELDS = [
 ]
 
 ALLOWED_ASPECT_RATIOS = {"9:16", "16:9"}
+ALLOWED_TARGET_DURATIONS = {30, 40, 50, 60}
+DEFAULT_TARGET_DURATION_SECONDS = 30
+MIN_RESTAURANT_IMAGES = 6
+MIN_CLIP_DURATION_SECONDS = 3
+MAX_CLIP_DURATION_SECONDS = 6
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 FORBIDDEN_NAME_HINTS = [
     "qrcode",
@@ -44,8 +50,9 @@ def validate_project(project_path: str | Path) -> ValidationReport:
 
     data = _read_project_json(project_file, issues)
     _validate_required_fields(data, issues)
+    target_duration_seconds = get_target_duration_seconds(data, issues)
 
-    config = _build_config(project_file, project_root, data)
+    config = _build_config(project_file, project_root, data, target_duration_seconds)
     if config.aspect_ratio and config.aspect_ratio not in ALLOWED_ASPECT_RATIOS:
         issues.append(
             ValidationIssue(
@@ -59,6 +66,13 @@ def validate_project(project_path: str | Path) -> ValidationReport:
     image_files = _scan_images(image_dir_path, issues)
     category_checks = _check_categories(image_files)
     _validate_image_count(image_files, issues)
+    image_count_range = get_image_count_range_for_duration(config.target_duration_seconds)
+    _validate_image_count_for_target_duration(
+        image_files=image_files,
+        target_duration_seconds=config.target_duration_seconds,
+        image_count_range=image_count_range,
+        issues=issues,
+    )
     _validate_categories(category_checks, issues)
     _validate_forbidden_name_hints(image_files, issues)
 
@@ -66,11 +80,13 @@ def validate_project(project_path: str | Path) -> ValidationReport:
         project_path=str(project_file),
         project_name=config.project_name,
         image_dir=str(image_dir_path),
+        target_duration_seconds=config.target_duration_seconds,
+        image_count_range=image_count_range,
         image_count=len(image_files),
         image_files=[image.name for image in image_files],
         category_checks=category_checks,
         issues=issues,
-        passed=not issues,
+        passed=not any(issue.severity == "error" for issue in issues),
     )
     return report
 
@@ -136,7 +152,63 @@ def _validate_required_fields(data: dict[str, Any], issues: list[ValidationIssue
             )
 
 
-def _build_config(project_file: Path, project_root: Path, data: dict[str, Any]) -> ProjectConfig:
+def get_target_duration_seconds(
+    data: dict[str, Any], issues: list[ValidationIssue]
+) -> int:
+    raw_value = data.get("target_duration_seconds")
+    if raw_value is None:
+        issues.append(
+            ValidationIssue(
+                code="missing_target_duration_seconds",
+                field="target_duration_seconds",
+                message=(
+                    "Missing target_duration_seconds; defaulting to "
+                    f"{DEFAULT_TARGET_DURATION_SECONDS}. New samples should set one of "
+                    "30, 40, 50, or 60."
+                ),
+                severity="warning",
+            )
+        )
+        return DEFAULT_TARGET_DURATION_SECONDS
+
+    if isinstance(raw_value, bool):
+        duration = None
+    elif isinstance(raw_value, int):
+        duration = raw_value
+    elif isinstance(raw_value, str) and raw_value.isdigit():
+        duration = int(raw_value)
+    else:
+        duration = None
+
+    if duration not in ALLOWED_TARGET_DURATIONS:
+        issues.append(
+            ValidationIssue(
+                code="invalid_target_duration_seconds",
+                field="target_duration_seconds",
+                message="target_duration_seconds must be one of 30, 40, 50, or 60.",
+            )
+        )
+        return DEFAULT_TARGET_DURATION_SECONDS
+
+    return duration
+
+
+def get_image_count_range_for_duration(target_duration_seconds: int) -> dict[str, int]:
+    return {
+        "min": max(
+            MIN_RESTAURANT_IMAGES,
+            math.ceil(target_duration_seconds / MAX_CLIP_DURATION_SECONDS),
+        ),
+        "max": math.floor(target_duration_seconds / MIN_CLIP_DURATION_SECONDS),
+    }
+
+
+def _build_config(
+    project_file: Path,
+    project_root: Path,
+    data: dict[str, Any],
+    target_duration_seconds: int,
+) -> ProjectConfig:
     return ProjectConfig(
         project_path=project_file,
         project_root=project_root,
@@ -150,6 +222,7 @@ def _build_config(project_file: Path, project_root: Path, data: dict[str, Any]) 
         bgm_type=str(data.get("bgm_type", "")),
         video_style=str(data.get("video_style", "")),
         image_dir=str(data.get("image_dir", "")),
+        target_duration_seconds=target_duration_seconds,
         raw=data,
     )
 
@@ -184,21 +257,53 @@ def _scan_images(image_dir: Path, issues: list[ValidationIssue]) -> list[ImageFi
 
 
 def _validate_image_count(image_files: list[ImageFile], issues: list[ValidationIssue]) -> None:
-    if len(image_files) < 6:
+    if len(image_files) < MIN_RESTAURANT_IMAGES:
         issues.append(
             ValidationIssue(
                 code="too_few_images",
                 field="image_dir",
-                message=f"At least 6 images are required; found {len(image_files)}.",
+                message=(
+                    f"At least {MIN_RESTAURANT_IMAGES} images are required; "
+                    f"found {len(image_files)}."
+                ),
             )
         )
 
-    if len(image_files) > 12:
+
+def _validate_image_count_for_target_duration(
+    image_files: list[ImageFile],
+    target_duration_seconds: int,
+    image_count_range: dict[str, int],
+    issues: list[ValidationIssue],
+) -> None:
+    image_count = len(image_files)
+    min_images = image_count_range["min"]
+    max_images = image_count_range["max"]
+
+    if image_count < min_images:
         issues.append(
             ValidationIssue(
-                code="too_many_images",
+                code="too_few_images_for_target_duration",
                 field="image_dir",
-                message=f"At most 12 images are allowed; found {len(image_files)}.",
+                message=(
+                    f"Target duration {target_duration_seconds}s requires at least "
+                    f"{min_images} images at up to {MAX_CLIP_DURATION_SECONDS}s per image; "
+                    f"found {image_count}."
+                ),
+            )
+        )
+
+    if image_count > max_images:
+        issues.append(
+            ValidationIssue(
+                code="too_many_images_for_target_duration",
+                field="image_dir",
+                message=(
+                    f"Target duration {target_duration_seconds}s works best with at most "
+                    f"{max_images} images at {MIN_CLIP_DURATION_SECONDS}s or more per image; "
+                    f"found {image_count}."
+                ),
+                severity="warning",
             )
         )
 

@@ -19,6 +19,7 @@ class ProjectConfig:
     bgm_type: str
     video_style: str
     image_dir: str
+    target_duration_seconds: int
     raw: dict[str, Any]
 
 
@@ -43,6 +44,8 @@ class ValidationReport:
     project_path: str
     project_name: str
     image_dir: str
+    target_duration_seconds: int
+    image_count_range: dict[str, int]
     image_count: int
     image_files: list[str] = field(default_factory=list)
     category_checks: dict[str, bool] = field(default_factory=dict)
