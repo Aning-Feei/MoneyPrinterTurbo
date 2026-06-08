@@ -36,6 +36,7 @@
 18. 完成第二次 WebUI Sequential 复测和循环原因定位
 19. 完成第三次 WebUI 参数基线复测
 20. 开始第 2 阶段并实现最小版预检器
+21. 完成第 2 阶段预检器负向测试
 
 ## 当前阻塞点
 
@@ -43,7 +44,7 @@
 
 ## 下一步目标
 
-验证最小版预检器输出，确认镜头顺序计划、旁白时长估算、clip duration 建议、循环风险判断和 WebUI 参数建议是否符合餐厅样片工作流。
+根据负向测试结果优化 CLI 输出表达，继续规划餐厅专用镜头顺序/参数预检规则。
 
 ## 第 0 阶段 0.9 状态
 
@@ -293,3 +294,48 @@
   - 不调用 TTS
   - 不生成视频
   - 不修改 MoneyPrinterTurbo 原有业务代码
+
+## 第 2 阶段负向测试
+
+- 临时测试目录：/tmp/mpt-preflight-negative/
+- 临时 project：/tmp/mpt-preflight-negative/project.json
+- 临时报告：/tmp/mpt-preflight-negative/preflight_report.json
+- 仓库内未出现 preflight_report.json
+- 输入特征：
+  - 只有 3 张图片：
+    1. 01_intro.jpg
+    2. 02_interior.jpg
+    3. 03_dish_1.jpg
+  - 旁白较长
+- 运行结果：
+  - 预检器运行成功
+  - 命令退出码为 1
+  - 退出码为 1 的原因是报告 ok: false，属于负向测试预期，不是程序崩溃
+- 报告摘要：
+  - ok: false
+  - estimated_narration_seconds: 31.78
+  - recommended_clip_duration: 8
+  - will_loop: true
+  - video_source: local
+  - video_concat_mode: sequential
+  - video_clip_duration: 8
+- shots 顺序：
+  1. intro / 01_intro.jpg / 8s
+  2. interior / 02_interior.jpg / 8s
+  3. dish_1 / 03_dish_1.jpg / 8s
+- errors:
+  - too_few_images：只有 3 张图，少于最低 6 张
+  - missing_image_category：缺少 dish_2
+  - missing_image_category：缺少 dining/gathering
+  - missing_image_category：缺少 extra
+- warning:
+  - image_duration_shorter_than_narration：3 张 * 8 秒 = 24 秒，小于估算旁白 31.78 秒，可能循环图片
+- 结论：
+  - 预检器正确识别循环风险
+  - 预检器会把 clip duration 提高到上限 8 秒
+  - 当仍不足覆盖旁白时，会给出 will_loop: true 和 warning
+  - 第 2 阶段最小版预检器通过负向测试
+- 后续改进建议：
+  - CLI 可以更明确地区分“程序执行失败”和“预检完成但 ok=false”
+  - 例如在控制台输出 preflight completed with validation errors
+  - 该改进不阻塞当前阶段

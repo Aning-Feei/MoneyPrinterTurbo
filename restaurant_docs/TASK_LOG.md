@@ -363,3 +363,56 @@
   - 不读取图片内容做视觉识别
   - 不生成视频
   - 不修改 MoneyPrinterTurbo 原有业务代码
+
+## 第 2 阶段 - 预检器负向测试
+
+- 本次目标：
+  - 验证预检器在图片数量少、旁白较长时是否能识别循环风险并给出合理参数建议
+- 临时测试目录：
+  - /tmp/mpt-preflight-negative/
+- 临时 project：
+  - /tmp/mpt-preflight-negative/project.json
+- 临时报告：
+  - /tmp/mpt-preflight-negative/preflight_report.json
+- 输入特征：
+  - 只有 3 张图片：
+    1. 01_intro.jpg
+    2. 02_interior.jpg
+    3. 03_dish_1.jpg
+  - 旁白较长
+- 测试命令：
+  - python3 -m restaurant_engine.preflight_project /tmp/mpt-preflight-negative/project.json
+- 测试结果：
+  - 预检器运行成功
+  - 命令退出码为 1
+  - 退出码为 1 的原因是报告 ok: false，属于负向测试预期，不是程序崩溃
+  - 仓库内未出现 preflight_report.json
+  - git status --short 保持为空
+- 报告摘要：
+  - ok: false
+  - estimated_narration_seconds: 31.78
+  - recommended_clip_duration: 8
+  - will_loop: true
+  - video_source: local
+  - video_concat_mode: sequential
+  - video_clip_duration: 8
+- shots 顺序：
+  1. intro / 01_intro.jpg / 8s
+  2. interior / 02_interior.jpg / 8s
+  3. dish_1 / 03_dish_1.jpg / 8s
+- errors:
+  - too_few_images：只有 3 张图，少于最低 6 张
+  - missing_image_category：缺少 dish_2
+  - missing_image_category：缺少 dining/gathering
+  - missing_image_category：缺少 extra
+- warning:
+  - image_duration_shorter_than_narration：3 张 * 8 秒 = 24 秒，小于估算旁白 31.78 秒，可能循环图片
+- 结论：
+  - 预检器正确识别循环风险
+  - 预检器会把 clip duration 提高到上限 8 秒
+  - 当仍不足覆盖旁白时，会给出 will_loop: true 和 warning
+  - 第 2 阶段最小版预检器通过负向测试
+- 后续改进建议：
+  - CLI 可以更明确地区分“程序执行失败”和“预检完成但 ok=false”
+  - 例如在控制台输出 preflight completed with validation errors
+  - 该改进不阻塞当前阶段

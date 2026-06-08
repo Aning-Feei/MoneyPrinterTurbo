@@ -100,6 +100,36 @@ preflight_report.json
 
 则认为存在图片循环风险，并输出 warning。建议增加图片、提高每张图片时长，或缩短旁白。
 
+## 负向测试记录
+
+已使用临时目录完成一次负向测试：
+
+- 临时目录：/tmp/mpt-preflight-negative/
+- 临时 project：/tmp/mpt-preflight-negative/project.json
+- 临时报告：/tmp/mpt-preflight-negative/preflight_report.json
+- 仓库内未出现 preflight_report.json
+- 输入：
+  - 3 张图片：01_intro.jpg、02_interior.jpg、03_dish_1.jpg
+  - 较长旁白
+- 输出摘要：
+  - ok: false
+  - estimated_narration_seconds: 31.78
+  - recommended_clip_duration: 8
+  - will_loop: true
+  - video_source: local
+  - video_concat_mode: sequential
+  - video_clip_duration: 8
+- 识别到的问题：
+  - too_few_images：只有 3 张图，少于最低 6 张
+  - missing_image_category：缺少 dish_2
+  - missing_image_category：缺少 dining/gathering
+  - missing_image_category：缺少 extra
+  - image_duration_shorter_than_narration：3 张 * 8 秒 = 24 秒，小于估算旁白 31.78 秒，可能循环图片
+
+结论：预检器能把 `video_clip_duration` 提高到上限 8 秒；当仍不足覆盖旁白时，会输出 `will_loop: true` 和 warning。命令退出码为 1 是因为报告 `ok: false`，属于负向测试预期，不是程序崩溃。
+
+后续可改进 CLI 输出，让它更明确地区分“程序执行失败”和“预检完成但 ok=false”，例如输出 `preflight completed with validation errors`。
+
 ## 当前限制
 
 - 不读取图片内容，不做视觉识别。
