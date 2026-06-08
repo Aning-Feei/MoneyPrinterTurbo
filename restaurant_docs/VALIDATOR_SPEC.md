@@ -32,6 +32,7 @@
 - `bgm_type`
 - `video_style`
 - `image_dir`
+- `target_duration_seconds`（新样本必须显式填写；旧样本当前阶段可兼容但应提示 warning）
 
 `aspect_ratio` 只能是：
 - `9:16`
@@ -39,11 +40,43 @@
 
 `image_dir` 是相对 `project.json` 所在目录的图片目录路径。
 
+`target_duration_seconds` 合法值：
+
+- `30`
+- `40`
+- `50`
+- `60`
+
 ## 图片数量规则
 
-- 至少 6 张图片
-- 最多 12 张图片
+- 餐厅项目至少 6 张图片，用于覆盖基础镜头类别。
+- 后续第一版应根据 `target_duration_seconds` 动态判断合理图片数量。
 - 支持 `.jpg`、`.jpeg`、`.png`
+
+按 3-6 秒/张反推，建议范围：
+
+| 目标时长 | 合理图片数量范围 |
+|---|---:|
+| 30 秒 | 6-10 张 |
+| 40 秒 | 7-12 张 |
+| 50 秒 | 9-16 张 |
+| 60 秒 | 10-20 张 |
+
+如果继续保留当前最大 12 张限制，50 秒和 60 秒仍可生成，但需要更谨慎控制文案和节奏。
+
+图片太少应作为 error：
+
+```text
+image_count < ceil(target_duration_seconds / 6)
+```
+
+图片太多应作为 warning：
+
+```text
+image_count > floor(target_duration_seconds / 3)
+```
+
+旧样本缺少 `target_duration_seconds` 时，当前阶段可先兼容并提示 warning；新样本必须显式填写。
 
 ## 命名类别规则
 

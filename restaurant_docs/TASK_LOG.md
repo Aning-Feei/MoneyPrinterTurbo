@@ -555,3 +555,55 @@
   - 不读取 storage/ 产物
   - 不修改 MoneyPrinterTurbo 原有业务代码
   - 不修改 restaurant_engine/preflight.py
+
+## 第 2 阶段 - 目标视频时长规则规格设计
+
+- 本次目标：
+  - 只更新规格文档
+  - 引入目标视频时长、动态 video_clip_duration、图片数量范围和旁白字数安全上限
+  - 暂不修改 restaurant_engine 代码
+  - 暂不修改 MoneyPrinterTurbo 原业务代码
+- 背景问题：
+  - hotpot_001 第二样本 validate/preflight/checklist 均通过
+  - checklist 推荐 video_clip_duration = 5
+  - 用户按 checklist 在 WebUI 中使用 Local file、Sequential/顺序、6 张图片生成视频
+  - WebUI 实际 audio.mp3 约 39.72 秒
+  - 6 张图 * 5 秒 = 30 秒
+  - 实际音频长于图片总时长，导致图片重复播放
+- 规格结论：
+  - 新样本应新增 `target_duration_seconds`
+  - 合法值为 30、40、50、60
+  - 旧样本缺少该字段时当前阶段可兼容，但应提示 warning
+  - 新样本必须显式填写
+- 动态 clip duration 规则：
+  - raw_clip_duration = ceil(target_duration_seconds / image_count)
+  - recommended_clip_duration = clamp(raw_clip_duration, 3, 6)
+  - total_image_duration = image_count * recommended_clip_duration
+  - will_loop = total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
+- 图片数量范围：
+  - 30 秒：6-10 张
+  - 40 秒：7-12 张
+  - 50 秒：9-16 张
+  - 60 秒：10-20 张
+  - 如果继续保留当前最大 12 张限制，50 秒和 60 秒仍可生成，但需要更谨慎控制文案和节奏
+- 旁白字数安全上限：
+  - narration_safe_seconds = target_duration_seconds - 3
+  - narration_max_cjk_chars = floor(narration_safe_seconds * 4.0)
+  - 30 秒：约 108 中文字符
+  - 40 秒：约 148 中文字符
+  - 50 秒：约 188 中文字符
+  - 60 秒：约 228 中文字符
+- checklist 后续要求：
+  - 展示目标视频时长
+  - 展示当前图片数量和合理范围
+  - 展示推荐 video_clip_duration
+  - 展示图片总覆盖时长
+  - 展示旁白最大中文字符数
+  - 提醒 WebUI 实际 video_script 不得明显超过上限
+  - 如果 WebUI 中改写文案或 AI 生成了更长文案，必须重新跑 preflight
+- 当前边界：
+  - 本次只修改 restaurant_docs 规格/状态文档
+  - 未修改代码
+  - 未修改 MoneyPrinterTurbo 原业务代码
+  - 未安装依赖
+  - 未调用外部 API

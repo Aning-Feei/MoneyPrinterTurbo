@@ -35,6 +35,17 @@ webui_checklist.md
 - 不要写死的字段提示
 - 生成前确认清单
 
+后续 checklist 还应展示目标时长和动态时长约束：
+
+- 目标视频时长
+- 当前图片数量
+- 合理图片数量范围
+- 推荐 `video_clip_duration`
+- 图片总覆盖时长
+- 旁白最大中文字符数
+- 文案一致性提醒
+- WebUI 中实际 `video_script` 不得明显超过上限
+
 ## ok=true 行为
 
 如果 `preflight_report.json` 中 `ok=true`：
@@ -77,6 +88,42 @@ webui_checklist.md
 - 字幕字体
 - 背景音乐
 - 转场模式
+
+## 目标时长和文案一致性提示
+
+当 `preflight_report.json` 包含 `target_duration_seconds` 后，checklist 应明确写出：
+
+- 用户选择的目标视频时长只能是 `30`、`40`、`50`、`60`。
+- `video_clip_duration` 应按以下规则由 preflight 推荐：
+
+```text
+raw_clip_duration = ceil(target_duration_seconds / image_count)
+recommended_clip_duration = clamp(raw_clip_duration, 3, 6)
+total_image_duration = image_count * recommended_clip_duration
+will_loop = total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
+```
+
+- 推荐每张图 3-6 秒；低于 3 秒切换过快，高于 6 秒单图停留过久。
+- 不建议依赖 random 或自动循环补齐素材。
+- 如果 WebUI 中改写文案或 AI 生成了更长文案，必须重新跑 preflight。
+
+旁白字数安全上限：
+
+```text
+narration_safe_seconds = target_duration_seconds - 3
+narration_max_cjk_chars = floor(narration_safe_seconds * 4.0)
+```
+
+参考表：
+
+| 目标时长 | 旁白安全秒数 | 最大中文字符数 |
+|---|---:|---:|
+| 30 秒 | 27 秒 | 约 108 字 |
+| 40 秒 | 37 秒 | 约 148 字 |
+| 50 秒 | 47 秒 | 约 188 字 |
+| 60 秒 | 57 秒 | 约 228 字 |
+
+checklist 应提醒人工确认 WebUI 实际 `video_script` 不明显超过该上限。
 
 ## 当前限制
 

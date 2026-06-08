@@ -5,8 +5,8 @@
 - 项目名称：餐饮 AI 宣传视频生成系统
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
-- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（最小版已完成）
-- 当前下一步：增加 WebUI 参数填表指南，或将 preflight_report.json 转成人工操作清单；继续做结构化镜头计划时仍暂不改 MoneyPrinterTurbo 原业务代码。
+- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（目标时长规则设计中）
+- 当前下一步：先在规格文档中引入 target_duration_seconds、动态 video_clip_duration、图片数量范围和旁白字数上限；后续再实现代码，不改 MoneyPrinterTurbo 原业务代码。
 
 ## 当前样本项目
 
@@ -38,6 +38,9 @@
 20. 开始第 2 阶段并实现最小版预检器
 21. 完成第 2 阶段预检器负向测试
 22. 改进预检器 CLI ok=false 提示
+23. 新增 WebUI 操作清单工具
+24. 增强 WebUI 操作清单字段映射
+25. 完成 hotpot_001 第二样本半自动流程验证并发现目标时长/文案长度问题
 
 ## 当前阻塞点
 
@@ -449,3 +452,38 @@ project.json
 - 可选方向 B：增加结构化镜头计划字段，例如每个 shot 的标题、旁白片段、画面用途。
 - 可选方向 C：准备 push 当前分支到 GitHub，方便换电脑继续。
 - 不建议立即修改 MoneyPrinterTurbo 原业务代码。
+
+## hotpot_001 第二样本问题记录
+
+- 第二样本：
+  - /Users/feei/AI/restaurant-video-ai-samples/hotpot_001/project.json
+- 已完成验证：
+  - validate_project 通过
+  - preflight_project 通过
+  - webui_checklist 生成成功
+  - 用户按 checklist 在 WebUI 中生成视频
+- checklist 推荐：
+  - video_concat_mode = sequential
+  - video_source = local
+  - video_clip_duration = 5
+- WebUI 实际结果：
+  - final-1.mp4 已生成
+  - 视频可正常播放
+  - 使用了 hotpot_001 图片
+  - 图片顺序正确
+  - 6 张图片都出现
+  - 语音、字幕正常且同步
+  - 图片重复播放
+- 只读定位结论：
+  - WebUI 实际生成音频约 39.72 秒
+  - 6 张图 * 5 秒 = 30 秒
+  - 实际音频长于图片总时长，导致 Sequential 模式下仍需要重复图片补齐音频
+- 当前结论：
+  - 需要引入 `target_duration_seconds`
+  - 需要根据目标时长和图片数量动态计算 `video_clip_duration`
+  - 需要根据目标时长约束图片数量和旁白字数
+  - preflight/checklist 只能约束输入文案，无法保证用户在 WebUI 中手动粘贴或 AI 改写的新文案仍符合约束
+- 当前处理：
+  - 先更新规格文档
+  - 暂不修改 restaurant_engine 代码
+  - 暂不修改 MoneyPrinterTurbo 原业务代码

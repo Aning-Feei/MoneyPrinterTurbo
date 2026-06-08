@@ -40,6 +40,16 @@ python -m restaurant_engine.preflight_project /Users/feei/AI/restaurant-video-ai
 
 如果没有专门旁白字段，当前会使用 `user_request` 作为时长估算兜底，并输出 warning。
 
+新样本应显式填写：
+
+```json
+{
+  "target_duration_seconds": 40
+}
+```
+
+合法值为 `30`、`40`、`50`、`60`。旧样本如果缺少该字段，当前阶段可兼容，但应提示 warning。
+
 ## 输出
 
 预检报告写入 `project.json` 同目录：
@@ -92,6 +102,70 @@ preflight completed with validation errors: 预检已完成，但存在校验错
 
 估算结果只用于生成前参数建议，不代表真实 TTS 音频时长。
 
+## 目标时长和动态 clip duration 规则
+
+后续预检器应以 `target_duration_seconds` 作为主要时长目标，并根据图片数量动态推荐每张图片展示时长：
+
+```text
+raw_clip_duration = ceil(target_duration_seconds / image_count)
+recommended_clip_duration = clamp(raw_clip_duration, 3, 6)
+total_image_duration = image_count * recommended_clip_duration
+will_loop = total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
+```
+
+说明：
+
+- 推荐每张图 3-6 秒。
+- 低于 3 秒，画面切太快。
+- 高于 6 秒，单图停留太久。
+- 不建议依赖 random 或自动循环补齐素材。
+- 如果 WebUI 中实际使用的 `video_script` 比 preflight 输入文案更长，需要重新跑 preflight。
+
+## 图片数量范围
+
+按 3-6 秒/张反推，餐厅项目第一版建议：
+
+| 目标时长 | 合理图片数量范围 |
+|---|---:|
+| 30 秒 | 6-10 张 |
+| 40 秒 | 7-12 张 |
+| 50 秒 | 9-16 张 |
+| 60 秒 | 10-20 张 |
+
+如果继续保留当前最大 12 张限制，50 秒和 60 秒仍可生成，但需要更谨慎控制文案和节奏。
+
+图片太少应作为 error：
+
+```text
+image_count < ceil(target_duration_seconds / 6)
+```
+
+图片太多应作为 warning：
+
+```text
+image_count > floor(target_duration_seconds / 3)
+```
+
+## 旁白字数安全上限
+
+为了减少真实 TTS 音频长于图片总时长导致循环的风险，预检报告应给出旁白最大中文字符数：
+
+```text
+narration_safe_seconds = target_duration_seconds - 3
+narration_max_cjk_chars = floor(narration_safe_seconds * 4.0)
+```
+
+建议上限：
+
+| 目标时长 | 旁白安全秒数 | 最大中文字符数 |
+|---|---:|---:|
+| 30 秒 | 27 秒 | 约 108 字 |
+| 40 秒 | 37 秒 | 约 148 字 |
+| 50 秒 | 47 秒 | 约 188 字 |
+| 60 秒 | 57 秒 | 约 228 字 |
+
+WebUI 实际 `video_script` 不应明显超过该字符上限。preflight/checklist 只能约束输入文案，无法保证用户在 WebUI 中手动粘贴的新文案仍符合约束。
+
 ## WebUI 推荐参数
 
 当前推荐：
@@ -111,6 +185,12 @@ preflight completed with validation errors: 预检已完成，但存在校验错
 ```
 
 则认为存在图片循环风险，并输出 warning。建议增加图片、提高每张图片时长，或缩短旁白。
+
+引入目标时长后，循环风险应同时考虑目标时长和估算旁白时长：
+
+```text
+total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
+```
 
 ## 负向测试记录
 
