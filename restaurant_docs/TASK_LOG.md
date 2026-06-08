@@ -471,3 +471,28 @@
   - 或把 preflight_report.json 转成“人工操作清单”
   - 或继续做结构化镜头计划，但仍暂不改 MoneyPrinterTurbo 原业务代码
   - 出差/换电脑前建议 push 当前分支到远程仓库
+
+## 第 2 阶段 - WebUI 操作清单最小实现
+
+- 本次目标：
+  - 把 preflight_report.json 转成人工 WebUI 填表指南
+  - 输出 webui_checklist.md
+- 新增文件：
+  - restaurant_engine/webui_checklist.py
+  - restaurant_docs/WEBUI_CHECKLIST_SPEC.md
+- 修改文件：
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- 工具能力：
+  - 读取 preflight_report.json
+  - 生成项目状态摘要
+  - 生成图片上传顺序
+  - 生成 WebUI 参数建议
+  - 生成旁白/时长检查
+  - 保留 warnings/errors
+  - 生成前确认清单
+- 运行约束：
+  - 不调用外部 API
+  - 不生成视频
+  - 不读取 storage/ 产物
+  - 不修改 MoneyPrinterTurbo 原有业务代码

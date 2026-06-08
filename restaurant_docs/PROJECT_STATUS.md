@@ -362,6 +362,8 @@
 - restaurant_engine 已有只读 validator。
 - 已新增 preflight planner。
 - 可生成 preflight_report.json。
+- 已新增 WebUI 操作清单工具。
+- 可把 preflight_report.json 转成 webui_checklist.md。
 - 正向样本通过。
 - 负向样本可识别：
   - 图片不足
@@ -385,6 +387,8 @@
   - python3 -m restaurant_engine.validate_project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json
 - 预检器：
   - python3 -m restaurant_engine.preflight_project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json
+- WebUI 操作清单：
+  - python3 -m restaurant_engine.webui_checklist /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/preflight_report.json
 
 ### 下一步建议
 
