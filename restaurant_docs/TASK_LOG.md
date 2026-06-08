@@ -117,3 +117,39 @@
   - 补充生成文件具体路径和文件名
   - 补充实际外部 API provider
   - 根据产物确认是否进入第 2 阶段 restaurant_engine Pipeline 骨架
+
+## 第 1 阶段 - WebUI 生成产物只读定位
+
+- 本次目标：
+  - 只读搜索 WebUI 点击生成后的产物路径和文件类型
+  - 不修改业务代码，不提交任何 storage/ 产物
+- 任务目录：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df
+- 最终视频候选：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df/final-1.mp4，约 1.6M
+- 合成中间视频：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df/combined-1.mp4，约 1.6M
+- TTS 音频：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df/audio.mp3，约 29K
+- 字幕文件：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df/subtitle.srt，约 128B
+- 脚本/任务参数：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df/script.json，约 2.0K
+- 本地图片预处理生成的中间视频：
+  - storage/local_videos/54aa385e-f487-48a8-b763-69ac1ef95d30_01_intro.jpg.mp4，约 1.9M
+  - storage/local_videos/1abcd369-c7d5-47e6-bc83-c56179d41f90_03_dish_1.jpg.mp4，约 1.5M
+  - storage/local_videos/9f82f6d5-9225-4515-be68-45b888ba1d1b_04_dish_2.jpg.mp4，约 1.3M
+- 日志状态：
+  - 发现非生成链路错误：osascript 尝试访问 chrome/firefox/safari 的错误
+  - 发现 st.components.v1.html deprecation 提示
+  - 未发现 TTS、字幕、BGM、ffmpeg 失败日志
+  - 日志明确显示任务成功：generated 1 videos
+- 当前结论：
+  - WebUI 页面打开成功
+  - 点击生成后成功调用外部 API
+  - 成功生成最终视频候选文件
+  - 第 1 阶段基础生成链路冒烟测试通过
+- 下一步建议：
+  - 人工播放 final-1.mp4，检查画面、字幕、语音、时长、餐厅图片顺序
+  - 决定是否将 storage/、生成视频、音频、字幕等加入 .gitignore
+  - 暂不把生成产物提交到 Git
