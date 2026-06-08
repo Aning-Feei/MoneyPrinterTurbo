@@ -529,3 +529,29 @@
   - 可选方向 B：增加结构化镜头计划字段，例如每个 shot 的标题、旁白片段、画面用途
   - 可选方向 C：准备 push 当前分支到 GitHub，方便换电脑继续
   - 不建议立即修改 MoneyPrinterTurbo 原业务代码
+
+## 第 2 阶段 - WebUI 操作清单字段映射增强
+
+- 本次目标：
+  - 让 webui_checklist.md 更贴近真实 WebUI 表单
+  - 写入真实 WebUI 字段名称、后端字段和值
+  - 写入人工填表步骤和生成前确认清单
+- 修改文件：
+  - restaurant_engine/webui_checklist.py
+  - restaurant_docs/WEBUI_CHECKLIST_SPEC.md
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- 新增输出内容：
+  - WebUI 页面操作步骤
+  - 真实字段映射表
+  - 风险结论
+  - 不要写死的字段提示
+  - 更完整的生成前确认清单
+- 保持不变：
+  - 继续只读取 preflight_report.json
+  - 继续在同目录生成 webui_checklist.md
+  - 不调用外部 API
+  - 不生成视频
+  - 不读取 storage/ 产物
+  - 不修改 MoneyPrinterTurbo 原有业务代码
+  - 不修改 restaurant_engine/preflight.py

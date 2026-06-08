@@ -26,10 +26,13 @@ webui_checklist.md
 
 - 项目信息
 - 是否可以开始生成
+- WebUI 页面操作步骤
 - 图片上传顺序
-- WebUI 参数建议
+- 真实 WebUI 字段映射
+- WebUI 参数建议和选项值
 - 旁白/时长检查
 - 风险提示
+- 不要写死的字段提示
 - 生成前确认清单
 
 ## ok=true 行为
@@ -40,6 +43,7 @@ webui_checklist.md
 - 推荐使用 `Sequential / 顺序`
 - 使用报告中的 `video_clip_duration`
 - 明确提示不要使用 Random
+- 明确提示打开 WebUI、选择 `Local file / 本地文件`、按顺序上传图片、点击 `生成视频`
 
 ## ok=false 行为
 
@@ -49,6 +53,30 @@ webui_checklist.md
 - 明确写出不建议开始生成
 - 提示需要先修复图片数量、角色缺失或循环风险
 - 保留 warnings/errors，方便人工逐项检查
+- 明确提示不要依赖 Random 或自动循环补齐素材
+
+## WebUI 字段映射
+
+当前 checklist 会写出以下真实 WebUI 字段：
+
+| WebUI 显示名称 | 后端字段 | 推荐值 |
+|---|---|---|
+| 视频来源 | video_source | local |
+| 上传本地文件 | video_materials | 按图片顺序上传 |
+| 视频拼接模式 | video_concat_mode | sequential |
+| 视频片段最大时长(秒) | video_clip_duration | 预检推荐秒数 |
+| 视频比例 | video_aspect | 9:16 或项目指定 |
+| 启用字幕 | subtitle_enabled | true |
+| 字幕位置 | subtitle_position | bottom 或保持默认 |
+| 生成视频 | tm.start(...) | 点击按钮 |
+
+以下字段不要写死，应根据当前 WebUI 配置选择：
+
+- TTS 服务
+- 朗读声音 voice_name
+- 字幕字体
+- 背景音乐
+- 转场模式
 
 ## 当前限制
 
