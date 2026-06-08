@@ -1,4 +1,6 @@
 import os
+import math
+import re
 import sys
 import webbrowser
 from uuid import UUID, uuid4
@@ -28,28 +30,194 @@ from app.services import task as tm
 from app.utils import utils
 
 st.set_page_config(
-    page_title="MoneyPrinterTurbo",
+    page_title="TwinkleBite AI",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="auto",
     menu_items={
-        "Report a bug": "https://github.com/harry0703/MoneyPrinterTurbo/issues",
-        "About": "# MoneyPrinterTurbo\nSimply provide a topic or keyword for a video, and it will "
-        "automatically generate the video copy, video materials, video subtitles, "
-        "and video background music before synthesizing a high-definition short "
-        "video.\n\nhttps://github.com/harry0703/MoneyPrinterTurbo",
+        "Get Help": None,
+        "Report a bug": None,
+        "About": None,
     },
 )
 
 
-streamlit_style = """
-<style>
-h1 {
-    padding-top: 0 !important;
-}
-</style>
-"""
-st.markdown(streamlit_style, unsafe_allow_html=True)
+def hide_streamlit_dev_chrome_and_cache_popup():
+    streamlit_style = """
+    <style>
+    h1 {
+        padding-top: 0 !important;
+    }
+    #MainMenu,
+    [data-testid="stToolbar"],
+    [data-testid="stStatusWidget"],
+    .stDeployButton {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    </style>
+    """
+    st.markdown(streamlit_style, unsafe_allow_html=True)
+
+    key_guard_js = """
+    <script>
+    (function () {
+        function getTargetWindow() {
+            try {
+                return window.parent && window.parent.document
+                    ? window.parent
+                    : window;
+            } catch (error) {
+                return window;
+            }
+        }
+
+        const targetWindow = getTargetWindow();
+        if (targetWindow.__twinkleClearCacheKeyGuardInstalled) {
+            return;
+        }
+        targetWindow.__twinkleClearCacheKeyGuardInstalled = true;
+
+        function isEditableTarget(target) {
+            if (!target) {
+                return false;
+            }
+            const tag = (target.tagName || "").toLowerCase();
+            if (tag === "input" || tag === "textarea" || target.isContentEditable) {
+                return true;
+            }
+            return Boolean(
+                target.closest && target.closest('[contenteditable="true"]')
+            );
+        }
+
+        targetWindow.document.addEventListener(
+            "keydown",
+            function (event) {
+                const key = (event.key || "").toLowerCase();
+                const isC = key === "c";
+                const hasPrimaryModifier = event.metaKey || event.ctrlKey;
+                const hasCacheModifier = event.shiftKey || event.altKey;
+
+                // Keep normal copy working: Cmd+C / Ctrl+C without Shift/Alt is allowed.
+                if (!hasPrimaryModifier || !isC || !hasCacheModifier) {
+                    return;
+                }
+
+                // Never block typing or copying inside editable controls.
+                if (isEditableTarget(event.target)) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.stopImmediatePropagation) {
+                    event.stopImmediatePropagation();
+                }
+            },
+            true
+        );
+    })();
+    </script>
+    """
+    st.components.v1.html(key_guard_js, height=0, width=0)
+
+    dialog_guard_js = """
+    <script>
+    (function () {
+        function getTargetDocument() {
+            try {
+                return window.parent && window.parent.document
+                    ? window.parent.document
+                    : document;
+            } catch (error) {
+                return document;
+            }
+        }
+
+        const doc = getTargetDocument();
+        const guardWindow = doc.defaultView || window;
+        if (!doc.body || guardWindow.__twinkleClearCachesDialogGuardInstalled) {
+            return;
+        }
+        guardWindow.__twinkleClearCachesDialogGuardInstalled = true;
+
+        function isClearCachesDialog(element) {
+            if (!element || !element.innerText) {
+                return false;
+            }
+            const text = element.innerText;
+            const hasTitle = text.includes("Clear caches");
+            const hasCacheText =
+                text.includes("Are you sure you want to clear the app") ||
+                text.includes("@st.cache_data") ||
+                text.includes("@st.cache_resource");
+            return hasTitle && hasCacheText;
+        }
+
+        function closeDialog(dialog) {
+            const buttons = Array.from(dialog.querySelectorAll("button"));
+            const cancelButton = buttons.find(
+                (button) => (button.innerText || "").trim() === "Cancel"
+            );
+            if (cancelButton) {
+                cancelButton.click();
+                return;
+            }
+
+            const closeButton = buttons.find((button) => {
+                const label = (
+                    button.getAttribute("aria-label") ||
+                    button.title ||
+                    button.innerText ||
+                    ""
+                ).toLowerCase();
+                return (
+                    label.includes("close") ||
+                    label.includes("cancel") ||
+                    label === "×"
+                );
+            });
+
+            if (closeButton) {
+                closeButton.click();
+                return;
+            }
+
+            dialog.style.setProperty("display", "none", "important");
+            dialog.style.setProperty("visibility", "hidden", "important");
+            dialog.setAttribute("aria-hidden", "true");
+        }
+
+        function suppressClearCachesDialogs() {
+            const dialogs = Array.from(
+                doc.querySelectorAll(
+                    [
+                        '[role="dialog"]',
+                        '[data-baseweb="modal"]',
+                        '[data-testid="stModal"]',
+                        '[data-testid*="Modal"]',
+                    ].join(",")
+                )
+            );
+
+            dialogs.forEach((dialog) => {
+                if (isClearCachesDialog(dialog)) {
+                    closeDialog(dialog);
+                }
+            });
+        }
+
+        suppressClearCachesDialogs();
+        const observer = new MutationObserver(suppressClearCachesDialogs);
+        observer.observe(doc.body, { childList: true, subtree: true });
+    })();
+    </script>
+    """
+    st.components.v1.html(dialog_guard_js, height=0, width=0)
+
+
+hide_streamlit_dev_chrome_and_cache_popup()
 
 # 定义资源目录
 font_dir = os.path.join(root_dir, "resource", "fonts")
@@ -63,6 +231,10 @@ if "video_subject" not in st.session_state:
     st.session_state["video_subject"] = ""
 if "video_script" not in st.session_state:
     st.session_state["video_script"] = ""
+if "video_script_input" not in st.session_state:
+    st.session_state["video_script_input"] = st.session_state["video_script"]
+if "video_script_was_clamped" not in st.session_state:
+    st.session_state["video_script_was_clamped"] = False
 if "video_terms" not in st.session_state:
     st.session_state["video_terms"] = ""
 if "video_script_prompt" not in st.session_state:
@@ -84,7 +256,7 @@ locales = utils.load_locales(i18n_dir)
 title_col, lang_col = st.columns([3, 1])
 
 with title_col:
-    st.title(f"MoneyPrinterTurbo v{config.project_version}")
+    st.title("TwinkleBite AI")
 
 with lang_col:
     display_languages = []
@@ -217,6 +389,617 @@ locales = utils.load_locales(i18n_dir)
 def tr(key):
     loc = locales.get(st.session_state["ui_language"], {})
     return loc.get("Translation", {}).get(key, key)
+
+
+RESTAURANT_TARGET_DURATIONS = [30, 40, 50, 60]
+RESTAURANT_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+RESTAURANT_SCRIPT_EXTENSION_SENTENCES = [
+    "这里适合朋友小聚，也适合下班后放松用餐。",
+    "热气腾腾的锅底配上新鲜食材，让整顿饭更有氛围。",
+    "从环境到菜品，都能感受到轻松热闹的用餐体验。",
+    "如果想找一顿有温度的晚餐，这里会是不错的选择。",
+    "整体体验轻松又有氛围。",
+    "适合约上朋友一起慢慢享用。",
+    "每一口都更有烟火气。",
+    "值得一试。",
+]
+
+
+def set_params_runtime_field(params: VideoParams, field_name: str, value):
+    try:
+        setattr(params, field_name, value)
+    except ValueError:
+        # Streamlit may hot-reload Main.py while keeping an older imported
+        # VideoParams class in memory. Avoid crashing the page before restart.
+        object.__setattr__(params, field_name, value)
+
+
+def is_restaurant_image_file(file_name: str) -> bool:
+    return os.path.splitext(file_name or "")[1].lower() in RESTAURANT_IMAGE_SUFFIXES
+
+
+def count_uploaded_image_files(files) -> int:
+    return sum(1 for file in files if is_restaurant_image_file(getattr(file, "name", "")))
+
+
+def count_material_image_files(materials) -> int:
+    count = 0
+    for material in materials or []:
+        url = material.get("url", "") if isinstance(material, dict) else getattr(material, "url", "")
+        if is_restaurant_image_file(url):
+            count += 1
+    return count
+
+
+def get_restaurant_image_count(files, persisted_materials) -> int:
+    uploaded_count = count_uploaded_image_files(files)
+    if uploaded_count:
+        return uploaded_count
+    return count_material_image_files(persisted_materials)
+
+
+def get_restaurant_image_range(target_duration_seconds: int) -> tuple[int, int]:
+    min_images = max(6, math.ceil(target_duration_seconds / 6))
+    max_images = math.floor(target_duration_seconds / 3)
+    return min_images, max_images
+
+
+def recommend_restaurant_clip_duration(
+    target_duration_seconds: int, image_count: int
+) -> int | None:
+    if image_count <= 0:
+        return None
+    raw_clip_duration = math.ceil(target_duration_seconds / image_count)
+    return min(max(raw_clip_duration, 3), 6)
+
+
+def lock_restaurant_video_params(params: VideoParams, image_count: int | None = None):
+    set_params_runtime_field(params, "restaurant_mode", True)
+    set_params_runtime_field(params, "video_language", "zh-CN")
+    set_params_runtime_field(params, "video_source", "local")
+    set_params_runtime_field(params, "video_concat_mode", VideoConcatMode.sequential.value)
+    set_params_runtime_field(params, "video_count", 1)
+    set_params_runtime_field(
+        params,
+        "video_aspect",
+        params.video_aspect or VideoAspect.portrait.value,
+    )
+    recommended_clip_duration = None
+    if image_count:
+        recommended_clip_duration = recommend_restaurant_clip_duration(
+            params.target_duration_seconds, image_count
+        )
+    set_params_runtime_field(params, "video_clip_duration", recommended_clip_duration or 5)
+    return recommended_clip_duration
+
+
+def count_cjk_chars(text: str) -> int:
+    return len(re.findall(r"[\u4e00-\u9fff]", text or ""))
+
+
+def strip_script_noise(text: str) -> str:
+    if not text:
+        return ""
+    cleaned_lines = []
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        line = line.strip().strip("*#`> ")
+        line = re.sub(r"^[-\d一二三四五六七八九十]+[\.、：:）)]\s*", "", line)
+        line = re.sub(r"^(旁白|文案|视频文案|最终旁白正文)\s*[：:]\s*", "", line)
+        if line:
+            cleaned_lines.append(line)
+    return re.sub(r"\s+", " ", "".join(cleaned_lines)).strip()
+
+
+def get_restaurant_script_char_range(target_duration_seconds: int) -> tuple[int, int]:
+    min_chars = math.floor((target_duration_seconds - 6) * 4.0)
+    max_chars = math.floor((target_duration_seconds - 3) * 4.0)
+    return min_chars, max_chars
+
+
+def get_narration_char_range(target_duration_seconds: int) -> tuple[int, int]:
+    return get_restaurant_script_char_range(target_duration_seconds)
+
+
+def _append_restaurant_sentence(script: str, sentence: str) -> str:
+    script = script.strip()
+    if not script:
+        return sentence
+    if script[-1] in "。！？!?":
+        return f"{script}{sentence}"
+    return f"{script}。{sentence}"
+
+
+def extend_restaurant_script_locally(script: str, min_chars: int, max_chars: int) -> str:
+    extended = strip_script_noise(script)
+    while count_cjk_chars(extended) < min_chars:
+        current_count = count_cjk_chars(extended)
+        remaining_to_max = max_chars - current_count
+        best_sentence = None
+        for sentence in RESTAURANT_SCRIPT_EXTENSION_SENTENCES:
+            sentence_len = count_cjk_chars(sentence)
+            if sentence_len <= remaining_to_max:
+                best_sentence = sentence
+                break
+        if best_sentence is None:
+            best_sentence = "整体体验轻松又有氛围。"
+        extended = _append_restaurant_sentence(extended, best_sentence)
+        if best_sentence == "整体体验轻松又有氛围。" and count_cjk_chars(extended) > max_chars:
+            break
+    return extended
+
+
+def _split_script_sentences(script: str) -> list[str]:
+    parts = re.split(r"([。！？!?；;])", strip_script_noise(script))
+    sentences = []
+    for index in range(0, len(parts), 2):
+        sentence = parts[index].strip()
+        if not sentence:
+            continue
+        if index + 1 < len(parts):
+            sentence += parts[index + 1]
+        sentences.append(sentence)
+    return sentences
+
+
+def trim_script_to_max_chars(script: str, max_chars: int) -> str:
+    cleaned = strip_script_noise(script)
+    if count_cjk_chars(cleaned) <= max_chars:
+        return cleaned
+    kept = ""
+    for sentence in _split_script_sentences(cleaned):
+        candidate = f"{kept}{sentence}" if kept else sentence
+        if count_cjk_chars(candidate) <= max_chars:
+            kept = candidate
+        elif not kept:
+            break
+        else:
+            break
+    if kept:
+        return kept.strip()
+
+    cjk_count = 0
+    chars = []
+    for char in cleaned:
+        if "\u4e00" <= char <= "\u9fff":
+            if cjk_count >= max_chars:
+                break
+            cjk_count += 1
+        chars.append(char)
+    trimmed = "".join(chars).rstrip("，,、；;：:")
+    if trimmed and trimmed[-1] not in "。！？!?":
+        trimmed += "。"
+    return trimmed
+
+
+def clamp_script_to_max_cjk_chars(text: str, max_chars: int) -> tuple[str, bool]:
+    if count_cjk_chars(text) <= max_chars:
+        return text, False
+    cleaned = strip_script_noise(text)
+    cjk_count = 0
+    chars = []
+    for char in cleaned:
+        if "\u4e00" <= char <= "\u9fff":
+            if cjk_count >= max_chars:
+                break
+            cjk_count += 1
+        chars.append(char)
+    clamped = "".join(chars).rstrip("，,、；;：:")
+    if clamped and clamped[-1] not in "。！？!?":
+        clamped += "。"
+    return clamped, True
+
+
+def build_local_restaurant_video_terms(video_subject: str) -> str:
+    subject = (video_subject or "").lower()
+    terms = ["restaurant food", "dining experience", "local restaurant"]
+    keyword_rules = [
+        ("火锅", "hotpot"),
+        ("hotpot", "hotpot"),
+        ("川", "sichuan food"),
+        ("sichuan", "sichuan food"),
+        ("麻辣", "spicy food"),
+        ("烧烤", "barbecue"),
+        ("烤肉", "barbecue"),
+        ("寿司", "sushi"),
+        ("拉面", "ramen"),
+        ("甜品", "dessert"),
+        ("咖啡", "coffee shop"),
+    ]
+    for marker, term in keyword_rules:
+        if marker in subject and term not in terms:
+            terms.insert(0, term)
+    return ", ".join(terms[:5])
+
+
+def sync_video_script_input(max_chars: int | None = None):
+    current_script = st.session_state.get("video_script_input", "")
+    if max_chars is None:
+        st.session_state["video_script"] = current_script
+        return
+    clamped_script, was_clamped = clamp_script_to_max_cjk_chars(
+        current_script, max_chars
+    )
+    if was_clamped and clamped_script != current_script:
+        st.session_state["video_script_input"] = clamped_script
+        st.session_state["video_script_was_clamped"] = True
+    st.session_state["video_script"] = st.session_state.get(
+        "video_script_input", clamped_script
+    )
+
+
+def install_weibo_style_script_limiter(min_chars: int, max_chars: int):
+    js = f"""
+    <script>
+    (function() {{
+        const minChars = {min_chars};
+        const maxChars = {max_chars};
+        const anchorId = "restaurant-video-script-anchor";
+        const counterId = "restaurant-video-script-live-counter";
+        const cjkPattern = /[\\u4e00-\\u9fff]/;
+
+        function countCjk(text) {{
+            const matches = (text || "").match(/[\\u4e00-\\u9fff]/g);
+            return matches ? matches.length : 0;
+        }}
+
+        function clampToMaxCjk(text, max) {{
+            let count = 0;
+            let output = "";
+            for (const char of Array.from(text || "")) {{
+                if (cjkPattern.test(char)) {{
+                    if (count >= max) {{
+                        break;
+                    }}
+                    count += 1;
+                    output += char;
+                    continue;
+                }}
+                if (count >= max) {{
+                    if ("。！？!?".includes(char) && !/[。！？!?]$/.test(output)) {{
+                        output += char;
+                    }}
+                    break;
+                }}
+                output += char;
+            }}
+            return output;
+        }}
+
+        function formatCounter(count, minValue, maxValue) {{
+            if (count < minValue) {{
+                return {{
+                    text: `当前中文字符数：${{count}} / 推荐范围：${{minValue}}–${{maxValue}}（还差 ${{minValue - count}} 字）`,
+                    color: "#f59e0b",
+                }};
+            }}
+            if (count >= maxValue) {{
+                return {{
+                    text: `当前中文字符数：${{count}} / 推荐范围：${{minValue}}–${{maxValue}}（已达上限）`,
+                    color: "#ef4444",
+                }};
+            }}
+            return {{
+                text: `当前中文字符数：${{count}} / 推荐范围：${{minValue}}–${{maxValue}}（还可输入 ${{maxValue - count}} 字）`,
+                color: "#22c55e",
+            }};
+        }}
+
+        function getParentDocument() {{
+            try {{
+                return window.parent && window.parent.document;
+            }} catch (error) {{
+                return document;
+            }}
+        }}
+
+        function findTextarea(doc) {{
+            const anchor = doc.getElementById(anchorId);
+            const textareas = Array.from(doc.querySelectorAll("textarea"));
+            if (!anchor || textareas.length === 0) {{
+                return null;
+            }}
+            const anchorTop = anchor.getBoundingClientRect().top;
+            return textareas
+                .map((textarea) => ({{
+                    textarea,
+                    top: textarea.getBoundingClientRect().top,
+                }}))
+                .filter((item) => item.top >= anchorTop - 8)
+                .sort((a, b) => a.top - b.top)[0]?.textarea || null;
+        }}
+
+        function dispatchStreamlitInput(textarea) {{
+            const textareaWindow = textarea.ownerDocument.defaultView || window;
+            textarea.dispatchEvent(new textareaWindow.Event("input", {{ bubbles: true }}));
+            textarea.dispatchEvent(new textareaWindow.Event("change", {{ bubbles: true }}));
+        }}
+
+        function setTextareaValue(textarea, value) {{
+            if (textarea.value === value) {{
+                return;
+            }}
+            const textareaWindow = textarea.ownerDocument.defaultView || window;
+            const setter = Object.getOwnPropertyDescriptor(
+                textareaWindow.HTMLTextAreaElement.prototype,
+                "value"
+            )?.set;
+            if (setter) {{
+                setter.call(textarea, value);
+            }} else {{
+                textarea.value = value;
+            }}
+            dispatchStreamlitInput(textarea);
+        }}
+
+        function updateCounter(doc, textarea) {{
+            const counter = doc.getElementById(counterId);
+            if (!counter) {{
+                return;
+            }}
+            const min = Number(textarea.dataset.restaurantScriptMin || minChars);
+            const max = Number(textarea.dataset.restaurantScriptMax || maxChars);
+            const count = countCjk(textarea.value);
+            const status = formatCounter(count, min, max);
+            counter.textContent = status.text;
+            counter.style.color = status.color;
+            counter.style.textAlign = "right";
+            counter.style.fontSize = "0.9rem";
+            counter.style.marginTop = "-0.25rem";
+        }}
+
+        function applyCandidate(textarea, candidate) {{
+            const max = Number(textarea.dataset.restaurantScriptMax || maxChars);
+            const clamped = clampToMaxCjk(candidate, max);
+            if (clamped !== textarea.value) {{
+                setTextareaValue(textarea, clamped);
+            }}
+        }}
+
+        function getCandidateValue(textarea, insertedText) {{
+            const start = textarea.selectionStart ?? textarea.value.length;
+            const end = textarea.selectionEnd ?? textarea.value.length;
+            return (
+                textarea.value.slice(0, start) +
+                (insertedText || "") +
+                textarea.value.slice(end)
+            );
+        }}
+
+        function attachLimiter() {{
+            const doc = getParentDocument();
+            const textarea = findTextarea(doc);
+            if (!textarea) {{
+                return false;
+            }}
+
+            textarea.dataset.restaurantScriptMax = String(maxChars);
+            textarea.dataset.restaurantScriptMin = String(minChars);
+
+            if (textarea.dataset.restaurantScriptLimiterInstalled !== "true") {{
+                textarea.dataset.restaurantScriptLimiterInstalled = "true";
+
+                textarea.addEventListener("beforeinput", function(event) {{
+                    if (event.inputType && event.inputType.startsWith("delete")) {{
+                        return;
+                    }}
+                    if (event.isComposing) {{
+                        return;
+                    }}
+                    const data = event.data || "";
+                    if (!data) {{
+                        return;
+                    }}
+                    const candidate = getCandidateValue(textarea, data);
+                    if (countCjk(candidate) > Number(textarea.dataset.restaurantScriptMax || maxChars)) {{
+                        event.preventDefault();
+                        applyCandidate(textarea, candidate);
+                        updateCounter(doc, textarea);
+                    }}
+                }});
+
+                textarea.addEventListener("paste", function(event) {{
+                    const pastedText = event.clipboardData?.getData("text") || "";
+                    if (!pastedText) {{
+                        return;
+                    }}
+                    const candidate = getCandidateValue(textarea, pastedText);
+                    if (countCjk(candidate) > Number(textarea.dataset.restaurantScriptMax || maxChars)) {{
+                        event.preventDefault();
+                        applyCandidate(textarea, candidate);
+                        updateCounter(doc, textarea);
+                    }}
+                }});
+
+                textarea.addEventListener("input", function() {{
+                    const max = Number(textarea.dataset.restaurantScriptMax || maxChars);
+                    if (countCjk(textarea.value) > max) {{
+                        setTextareaValue(textarea, clampToMaxCjk(textarea.value, max));
+                    }}
+                    updateCounter(doc, textarea);
+                }});
+            }}
+
+            if (countCjk(textarea.value) > maxChars) {{
+                setTextareaValue(textarea, clampToMaxCjk(textarea.value, maxChars));
+            }}
+            updateCounter(doc, textarea);
+            return true;
+        }}
+
+        let attempts = 0;
+        const interval = window.setInterval(function() {{
+            attempts += 1;
+            if (attachLimiter() || attempts > 30) {{
+                window.clearInterval(interval);
+            }}
+        }}, 100);
+    }})();
+    </script>
+    """
+    st.components.v1.html(js, height=0, width=0)
+
+
+def normalize_restaurant_script_length(
+    script: str, min_chars: int, max_chars: int
+) -> tuple[str, str]:
+    normalized = strip_script_noise(script)
+    cjk_count = count_cjk_chars(normalized)
+    if min_chars <= cjk_count <= max_chars:
+        return normalized, "already_in_range"
+    if cjk_count < min_chars:
+        extended = extend_restaurant_script_locally(normalized, min_chars, max_chars)
+        extended_count = count_cjk_chars(extended)
+        if min_chars <= extended_count <= max_chars:
+            return extended, "local_extended"
+        if extended_count > max_chars:
+            trimmed = trim_script_to_max_chars(extended, max_chars)
+            if min_chars <= count_cjk_chars(trimmed) <= max_chars:
+                return trimmed, "local_extended"
+        return extended, "still_out_of_range"
+
+    trimmed = trim_script_to_max_chars(normalized, max_chars)
+    trimmed_count = count_cjk_chars(trimmed)
+    if trimmed_count < min_chars:
+        extended = extend_restaurant_script_locally(trimmed, min_chars, max_chars)
+        if count_cjk_chars(extended) <= max_chars:
+            return extended, "local_trimmed"
+    if count_cjk_chars(trimmed) <= max_chars:
+        return trimmed, "local_trimmed"
+    return trimmed, "still_out_of_range"
+
+
+def build_restaurant_script_prompt(params: VideoParams) -> str:
+    min_chars, max_chars = get_restaurant_script_char_range(
+        params.target_duration_seconds
+    )
+    restaurant_requirements = f"""
+目标视频时长：{params.target_duration_seconds} 秒
+建议中文旁白长度：{min_chars}–{max_chars} 个中文字符
+请严格控制视频文案长度在该范围内。
+不要明显超过上限，不要明显短于下限。
+文案应适合中文 TTS 朗读。
+不要输出分镜编号。
+不要输出解释。
+只输出可直接用于视频旁白的文案。
+""".strip()
+
+    if params.video_script_prompt:
+        return f"{params.video_script_prompt}\n\n{restaurant_requirements}"
+    return restaurant_requirements
+
+
+def build_restaurant_script_revision_prompt(
+    script: str,
+    params: VideoParams,
+    revision_type: str,
+) -> str:
+    min_chars, max_chars = get_restaurant_script_char_range(
+        params.target_duration_seconds
+    )
+    action = "扩写" if revision_type == "expand" else "压缩"
+    goal = (
+        "保持餐厅宣传语气"
+        if revision_type == "expand"
+        else "保留核心卖点"
+    )
+    return f"""
+请把下面文案{action}到 {min_chars}–{max_chars} 个中文字符之间。
+{goal}，适合中文 TTS 朗读。
+不能加入分镜编号。
+不能加入解释。
+只输出最终旁白正文。
+
+原文案：
+{script}
+""".strip()
+
+
+def revise_restaurant_script_if_needed(script: str, params: VideoParams) -> tuple[str, int, bool]:
+    min_chars, max_chars = get_restaurant_script_char_range(
+        params.target_duration_seconds
+    )
+    cjk_count = count_cjk_chars(script)
+    if cjk_count >= min_chars and cjk_count <= max_chars:
+        return script, cjk_count, False
+
+    revision_type = "expand" if cjk_count < min_chars else "compress"
+    revision_prompt = build_restaurant_script_revision_prompt(
+        script=script,
+        params=params,
+        revision_type=revision_type,
+    )
+    revised_script = llm.generate_script(
+        video_subject=params.video_subject,
+        language=params.video_language,
+        paragraph_number=params.paragraph_number,
+        video_script_prompt=revision_prompt,
+        custom_system_prompt=params.custom_system_prompt,
+    )
+    if "Error: " in revised_script:
+        return script, cjk_count, True
+    return revised_script, count_cjk_chars(revised_script), True
+
+
+def show_restaurant_mode_guidance(
+    params: VideoParams,
+    uploaded_files,
+    persisted_materials,
+) -> dict[str, int | None]:
+    target_duration = params.target_duration_seconds
+    min_images, max_images = get_restaurant_image_range(target_duration)
+    image_count = get_restaurant_image_count(uploaded_files, persisted_materials)
+    recommended_clip_duration = recommend_restaurant_clip_duration(
+        target_duration, image_count
+    )
+    min_chars, max_chars = get_restaurant_script_char_range(target_duration)
+    cjk_count = count_cjk_chars(params.video_script)
+
+    st.info(
+        f"目标 {target_duration} 秒建议图片数量：{min_images}–{max_images} 张"
+    )
+    st.write(f"当前本地图片数量：{image_count} 张")
+
+    if image_count == 0:
+        st.info("上传图片后自动计算视频片段最大时长。")
+    elif image_count < min_images:
+        st.error(
+            f"餐厅视频模式需要至少 {min_images} 张图片；当前只有 {image_count} 张，生成会被阻止。"
+        )
+    elif image_count > max_images:
+        st.warning(
+            f"当前图片数量 {image_count} 张，高于目标 {target_duration} 秒建议上限 {max_images} 张；可能节奏过快或视频超过目标时长。"
+        )
+
+    if recommended_clip_duration is not None:
+        total_image_duration = image_count * recommended_clip_duration
+        set_params_runtime_field(params, "video_clip_duration", recommended_clip_duration)
+        st.write(
+            f"推荐“视频片段最大时长(秒)”设置为 {recommended_clip_duration} 秒"
+        )
+        st.write(
+            f"当前上传图片数 {image_count} 张，预计图片总覆盖时长 {total_image_duration} 秒"
+        )
+        st.caption("餐厅模式会自动使用该时长，不需要手动选择。")
+    else:
+        total_image_duration = None
+
+    if params.video_script:
+        if cjk_count < min_chars:
+            st.warning("文案长度未达到当前目标视频时长要求。")
+        elif cjk_count > max_chars:
+            st.warning("文案长度超过当前目标视频时长要求。")
+        else:
+            st.success("文案字数符合目标时长要求。")
+    return {
+        "image_count": image_count,
+        "min_images": min_images,
+        "max_images": max_images,
+        "recommended_clip_duration": recommended_clip_duration,
+        "total_image_duration": total_image_duration,
+        "min_chars": min_chars,
+        "max_chars": max_chars,
+        "cjk_count": cjk_count,
+    }
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_groq_model_ids(api_key: str, base_url: str) -> list[str]:
@@ -662,8 +1445,10 @@ middle_panel = panel[1]
 right_panel = panel[2]
 
 params = VideoParams(video_subject="")
+set_params_runtime_field(params, "restaurant_mode", True)
 uploaded_files = []
 uploaded_audio_file = None
+restaurant_ui_checks = None
 
 with left_panel:
     with st.container(border=True):
@@ -673,94 +1458,148 @@ with left_panel:
             key="video_subject",
         ).strip()
 
-        video_languages = [
-            (tr("Auto Detect"), ""),
-        ]
-        for code in support_locales:
-            video_languages.append((code, code))
-
-        selected_index = st.selectbox(
-            tr("Script Language"),
-            index=0,
-            options=range(
-                len(video_languages)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: video_languages[x][
-                0
-            ],  # The label is displayed to the user
+        set_params_runtime_field(
+            params,
+            "target_duration_seconds",
+            st.selectbox(
+                "目标视频时长",
+                options=RESTAURANT_TARGET_DURATIONS,
+                index=0,
+                format_func=lambda seconds: f"{seconds}秒",
+            ),
         )
-        params.video_language = video_languages[selected_index][1]
+        set_params_runtime_field(params, "video_language", "zh-CN")
+        params.paragraph_number = 1
+        params.video_script_prompt = ""
+        params.custom_system_prompt = ""
 
-        with st.expander(tr("Advanced Script Settings"), expanded=False):
-            params.paragraph_number = st.slider(
-                tr("Script Paragraph Number"),
-                min_value=llm.MIN_SCRIPT_PARAGRAPH_NUMBER,
-                max_value=llm.MAX_SCRIPT_PARAGRAPH_NUMBER,
-                value=st.session_state.get("paragraph_number_input", 1),
-                key="paragraph_number_input",
-            )
-            params.video_script_prompt = st.text_area(
-                tr("Custom Script Requirements"),
-                height=100,
-                max_chars=llm.MAX_SCRIPT_PROMPT_LENGTH,
-                placeholder=tr("Custom Script Requirements Placeholder"),
-                key="video_script_prompt",
-            ).strip()
-
-            use_custom_system_prompt = st.checkbox(
-                tr("Use Custom System Prompt"),
-                help=tr("Use Custom System Prompt Help"),
-                key="use_custom_system_prompt",
-            )
-
-            if use_custom_system_prompt:
-                custom_system_prompt = st.text_area(
-                    tr("Custom System Prompt"),
-                    height=240,
-                    max_chars=llm.MAX_SCRIPT_SYSTEM_PROMPT_LENGTH,
-                    key="custom_system_prompt",
-                ).strip()
-                params.custom_system_prompt = custom_system_prompt
-            else:
-                params.custom_system_prompt = ""
+        min_script_chars, max_script_chars = get_restaurant_script_char_range(
+            params.target_duration_seconds
+        )
+        st.caption(
+            f"AI 将按目标视频时长生成约 {min_script_chars}–{max_script_chars} 个中文字符的旁白文案。"
+        )
 
         if st.button(
             tr("Generate Video Script and Keywords"), key="auto_generate_script"
         ):
             with st.spinner(tr("Generating Video Script and Keywords")):
+                script_prompt = params.video_script_prompt
+                if getattr(params, "restaurant_mode", False):
+                    script_prompt = build_restaurant_script_prompt(params)
                 script = llm.generate_script(
                     video_subject=params.video_subject,
                     language=params.video_language,
                     paragraph_number=params.paragraph_number,
-                    video_script_prompt=params.video_script_prompt,
+                    video_script_prompt=script_prompt,
                     custom_system_prompt=params.custom_system_prompt,
                 )
-                terms = llm.generate_terms(params.video_subject, script)
                 if "Error: " in script:
                     st.error(tr(script))
-                elif "Error: " in terms:
-                    st.error(tr(terms))
                 else:
+                    if getattr(params, "restaurant_mode", False):
+                        script, final_cjk_count, revised = revise_restaurant_script_if_needed(
+                            script, params
+                        )
+                        min_chars, max_chars = get_restaurant_script_char_range(
+                            params.target_duration_seconds
+                        )
+                        script, adjustment_note = normalize_restaurant_script_length(
+                            script, min_chars, max_chars
+                        )
+                        script, was_clamped = clamp_script_to_max_cjk_chars(
+                            script, max_chars
+                        )
+                        final_cjk_count = count_cjk_chars(script)
+                        if adjustment_note == "local_extended":
+                            st.info("已根据目标时长自动扩写文案，使其更接近推荐字数范围。")
+                        elif adjustment_note == "local_trimmed":
+                            st.info("已根据目标时长自动压缩文案，使其更接近推荐字数范围。")
+                        if was_clamped:
+                            st.info("已根据目标时长自动截断文案，使其不超过最大允许字数。")
+                        st.caption(f"AI 文案中文字符数：{final_cjk_count}")
+                        if final_cjk_count < min_chars or final_cjk_count > max_chars:
+                            st.error("AI 文案仍未完全落入推荐范围，请手动微调后再生成。")
                     st.session_state["video_script"] = script
-                    st.session_state["video_terms"] = ", ".join(terms)
-        params.video_script = st.text_area(
-            tr("Video Script"), value=st.session_state["video_script"], height=280
+                    st.session_state["video_script_input"] = script
+                    terms = llm.generate_terms(params.video_subject, script)
+                    if "Error: " in terms:
+                        st.warning("视频文案已生成，但关键词生成失败；将使用本地默认关键词继续。")
+                        if not st.session_state.get("video_terms"):
+                            st.session_state["video_terms"] = build_local_restaurant_video_terms(
+                                params.video_subject
+                            )
+                    else:
+                        st.session_state["video_terms"] = ", ".join(terms)
+        if getattr(params, "restaurant_mode", False):
+            if st.session_state.get("video_script_input", "") != st.session_state.get(
+                "video_script", ""
+            ):
+                st.session_state["video_script_input"] = st.session_state["video_script"]
+            st.markdown(
+                '<div id="restaurant-video-script-anchor"></div>',
+                unsafe_allow_html=True,
+            )
+        script_input = st.text_area(
+            tr("Video Script"),
+            key="video_script_input",
+            height=280,
+            on_change=sync_video_script_input,
+            args=(max_script_chars if getattr(params, "restaurant_mode", False) else None,),
         )
-        if st.button(tr("Generate Video Keywords"), key="auto_generate_terms"):
-            if not params.video_script:
-                st.error(tr("Please Enter the Video Subject"))
-                st.stop()
+        if getattr(params, "restaurant_mode", False):
+            if st.session_state.pop("video_script_was_clamped", False):
+                st.warning("文案已自动截断到当前目标视频时长允许的最大字数。")
+            backend_script, backend_was_clamped = clamp_script_to_max_cjk_chars(
+                script_input, max_script_chars
+            )
+            params.video_script = backend_script
+            st.session_state["video_script"] = backend_script
+            if backend_was_clamped:
+                st.warning(
+                    "文案超过最大中文字符数，已启用后端兜底；前端输入框会同步限制超出内容。"
+                )
+            current_script_chars = count_cjk_chars(params.video_script)
+            if current_script_chars < min_script_chars:
+                counter_note = f"还差 {min_script_chars - current_script_chars} 字"
+                counter_color = "#f59e0b"
+            elif current_script_chars >= max_script_chars:
+                counter_note = "已达上限"
+                counter_color = "#ef4444"
+            else:
+                counter_note = f"还可输入 {max_script_chars - current_script_chars} 字"
+                counter_color = "#22c55e"
+            st.markdown(
+                f"""
+                <div id="restaurant-video-script-live-counter"
+                     style="text-align: right; font-size: 0.9rem; color: {counter_color}; margin-top: -0.25rem;">
+                    当前中文字符数：{current_script_chars} / 推荐范围：{min_script_chars}–{max_script_chars}（{counter_note}）
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            install_weibo_style_script_limiter(min_script_chars, max_script_chars)
+        else:
+            params.video_script = script_input
+            st.session_state["video_script"] = script_input
+        if getattr(params, "restaurant_mode", False):
+            params.video_terms = st.session_state.get("video_terms", "")
+        else:
+            if st.button(tr("Generate Video Keywords"), key="auto_generate_terms"):
+                if not params.video_script:
+                    st.error(tr("Please Enter the Video Subject"))
+                    st.stop()
 
-            with st.spinner(tr("Generating Video Keywords")):
-                terms = llm.generate_terms(params.video_subject, params.video_script)
-                if "Error: " in terms:
-                    st.error(tr(terms))
-                else:
-                    st.session_state["video_terms"] = ", ".join(terms)
+                with st.spinner(tr("Generating Video Keywords")):
+                    terms = llm.generate_terms(params.video_subject, params.video_script)
+                    if "Error: " in terms:
+                        st.error(tr(terms))
+                    else:
+                        st.session_state["video_terms"] = ", ".join(terms)
 
-        params.video_terms = st.text_area(
-            tr("Video Keywords"), value=st.session_state["video_terms"]
-        )
+            params.video_terms = st.text_area(
+                tr("Video Keywords"), value=st.session_state["video_terms"]
+            )
 
 with middle_panel:
     with st.container(border=True):
@@ -778,21 +1617,22 @@ with middle_panel:
             (tr("Xiaohongshu"), "xiaohongshu"),
         ]
 
-        saved_video_source_name = config.app.get("video_source", "pexels")
-        saved_video_source_index = [v[1] for v in video_sources].index(
-            saved_video_source_name
-        )
+        restaurant_mode = getattr(params, "restaurant_mode", True)
+        set_params_runtime_field(params, "restaurant_mode", True)
 
-        selected_index = st.selectbox(
-            tr("Video Source"),
-            options=range(len(video_sources)),
-            format_func=lambda x: video_sources[x][0],
-            index=saved_video_source_index,
-        )
-        params.video_source = video_sources[selected_index][1]
-        config.app["video_source"] = params.video_source
+        if restaurant_mode:
+            video_aspect_ratios = [
+                (tr("Portrait"), VideoAspect.portrait.value),
+                (tr("Landscape"), VideoAspect.landscape.value),
+            ]
+            selected_aspect_index = st.selectbox(
+                tr("Video Ratio"),
+                options=range(len(video_aspect_ratios)),
+                format_func=lambda x: video_aspect_ratios[x][0],
+                index=0,
+            )
+            params.video_aspect = VideoAspect(video_aspect_ratios[selected_aspect_index][1])
 
-        if params.video_source == "local":
             # Streamlit 的文件类型校验对扩展名大小写敏感，这里同时放行大小写两种形式。
             local_file_types = ["mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png"]
             uploaded_files = st.file_uploader(
@@ -800,20 +1640,63 @@ with middle_panel:
                 type=local_file_types + [file_type.upper() for file_type in local_file_types],
                 accept_multiple_files=True,
             )
+            image_count = get_restaurant_image_count(
+                uploaded_files, st.session_state["local_video_materials"]
+            )
+            lock_restaurant_video_params(params, image_count)
+            if image_count:
+                st.write(
+                    f"视频片段最大时长：{params.video_clip_duration} 秒（根据目标时长和图片数量自动计算）"
+                )
+                st.write(
+                    f"图片总覆盖时长：{image_count} 张 × {params.video_clip_duration} 秒 = "
+                    f"{image_count * params.video_clip_duration} 秒"
+                )
+            else:
+                st.write("视频片段最大时长：上传图片后自动计算。")
+            restaurant_ui_checks = show_restaurant_mode_guidance(
+                params=params,
+                uploaded_files=uploaded_files,
+                persisted_materials=st.session_state["local_video_materials"],
+            )
+            config.app["video_source"] = "local"
+        else:
+            saved_video_source_name = config.app.get("video_source", "pexels")
+            saved_video_source_index = [v[1] for v in video_sources].index(
+                saved_video_source_name
+            )
 
-        selected_index = st.selectbox(
-            tr("Video Concat Mode"),
-            index=1,
-            options=range(
-                len(video_concat_modes)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: video_concat_modes[x][
-                0
-            ],  # The label is displayed to the user
-        )
-        params.video_concat_mode = VideoConcatMode(
-            video_concat_modes[selected_index][1]
-        )
+            selected_index = st.selectbox(
+                tr("Video Source"),
+                options=range(len(video_sources)),
+                format_func=lambda x: video_sources[x][0],
+                index=saved_video_source_index,
+            )
+            params.video_source = video_sources[selected_index][1]
+            config.app["video_source"] = params.video_source
+
+            if params.video_source == "local":
+                # Streamlit 的文件类型校验对扩展名大小写敏感，这里同时放行大小写两种形式。
+                local_file_types = ["mp4", "mov", "avi", "flv", "mkv", "jpg", "jpeg", "png"]
+                uploaded_files = st.file_uploader(
+                    tr("Upload Local Files"),
+                    type=local_file_types + [file_type.upper() for file_type in local_file_types],
+                    accept_multiple_files=True,
+                )
+
+            selected_index = st.selectbox(
+                tr("Video Concat Mode"),
+                index=1,
+                options=range(
+                    len(video_concat_modes)
+                ),  # Use the index as the internal option value
+                format_func=lambda x: video_concat_modes[x][
+                    0
+                ],  # The label is displayed to the user
+            )
+            params.video_concat_mode = VideoConcatMode(
+                video_concat_modes[selected_index][1]
+            )
 
         # 视频转场模式
         video_transition_modes = [
@@ -834,29 +1717,29 @@ with middle_panel:
             video_transition_modes[selected_index][1]
         )
 
-        video_aspect_ratios = [
-            (tr("Portrait"), VideoAspect.portrait.value),
-            (tr("Landscape"), VideoAspect.landscape.value),
-        ]
-        selected_index = st.selectbox(
-            tr("Video Ratio"),
-            options=range(
-                len(video_aspect_ratios)
-            ),  # Use the index as the internal option value
-            format_func=lambda x: video_aspect_ratios[x][
-                0
-            ],  # The label is displayed to the user
-        )
-        params.video_aspect = VideoAspect(video_aspect_ratios[selected_index][1])
-
-        params.video_clip_duration = st.selectbox(
-            tr("Clip Duration"), options=[2, 3, 4, 5, 6, 7, 8, 9, 10], index=1
-        )
-        params.video_count = st.selectbox(
-            tr("Number of Videos Generated Simultaneously"),
-            options=[1, 2, 3, 4, 5],
-            index=0,
-        )
+        if not restaurant_mode:
+            video_aspect_ratios = [
+                (tr("Portrait"), VideoAspect.portrait.value),
+                (tr("Landscape"), VideoAspect.landscape.value),
+            ]
+            selected_index = st.selectbox(
+                tr("Video Ratio"),
+                options=range(
+                    len(video_aspect_ratios)
+                ),  # Use the index as the internal option value
+                format_func=lambda x: video_aspect_ratios[x][
+                    0
+                ],  # The label is displayed to the user
+            )
+            params.video_aspect = VideoAspect(video_aspect_ratios[selected_index][1])
+            params.video_clip_duration = st.selectbox(
+                tr("Clip Duration"), options=[2, 3, 4, 5, 6, 7, 8, 9, 10], index=1
+            )
+            params.video_count = st.selectbox(
+                tr("Number of Videos Generated Simultaneously"),
+                options=[1, 2, 3, 4, 5],
+                index=0,
+            )
 
         with st.expander(tr("Advanced Video Settings"), expanded=False):
             video_codec_options = [
@@ -1342,7 +2225,53 @@ with right_panel:
                     config.save_config()
                     st.success(tr("Pixabay API Key deleted successfully"))
 
-start_button = st.button(tr("Generate Video"), use_container_width=True, type="primary")
+restaurant_can_generate = True
+restaurant_generate_blockers = []
+if getattr(params, "restaurant_mode", False):
+    min_chars, max_chars = get_restaurant_script_char_range(
+        params.target_duration_seconds
+    )
+    current_cjk_count = count_cjk_chars(params.video_script)
+    script_length_ok = min_chars <= current_cjk_count <= max_chars
+    if current_cjk_count < min_chars:
+        restaurant_generate_blockers.append(
+            f"生成前请先补足文案字数，还差 {min_chars - current_cjk_count} 个中文字符。"
+        )
+    elif current_cjk_count > max_chars:
+        restaurant_generate_blockers.append(
+            f"生成前请先缩短文案字数，已超出 {current_cjk_count - max_chars} 个中文字符。"
+        )
+
+    image_count = (
+        restaurant_ui_checks.get("image_count", 0)
+        if restaurant_ui_checks
+        else get_restaurant_image_count(
+            uploaded_files, st.session_state["local_video_materials"]
+        )
+    )
+    min_images = (
+        restaurant_ui_checks.get("min_images", 0)
+        if restaurant_ui_checks
+        else get_restaurant_image_range(params.target_duration_seconds)[0]
+    )
+    image_count_ok = image_count >= min_images
+    if not image_count_ok:
+        restaurant_generate_blockers.append(
+            f"生成前请先上传足够图片，目标 {params.target_duration_seconds} 秒至少需要 "
+            f"{min_images} 张；当前 {image_count} 张。"
+        )
+
+    restaurant_can_generate = script_length_ok and image_count_ok
+
+for blocker in restaurant_generate_blockers:
+    st.error(blocker)
+
+start_button = st.button(
+    tr("Generate Video"),
+    use_container_width=True,
+    type="primary",
+    disabled=not restaurant_can_generate,
+)
 if start_button:
     config.save_config()
     task_id = str(uuid4())
@@ -1350,6 +2279,31 @@ if start_button:
         st.error(tr("Video Script and Subject Cannot Both Be Empty"))
         scroll_to_bottom()
         st.stop()
+
+    if getattr(params, "restaurant_mode", False):
+        image_count = get_restaurant_image_count(
+            uploaded_files, st.session_state["local_video_materials"]
+        )
+        lock_restaurant_video_params(params, image_count)
+        if not params.video_terms:
+            params.video_terms = build_local_restaurant_video_terms(params.video_subject)
+            st.session_state["video_terms"] = params.video_terms
+        min_chars, max_chars = get_restaurant_script_char_range(
+            params.target_duration_seconds
+        )
+        cjk_count = count_cjk_chars(params.video_script)
+        if cjk_count < min_chars:
+            st.error(
+                f"当前文案偏短，还差 {min_chars - cjk_count} 个中文字符。请补足后再生成。"
+            )
+            scroll_to_bottom()
+            st.stop()
+        if cjk_count > max_chars:
+            st.error(
+                f"当前文案偏长，已超出 {cjk_count - max_chars} 个中文字符。请缩短后再生成。"
+            )
+            scroll_to_bottom()
+            st.stop()
 
     if params.video_source not in ["pexels", "pixabay", "local"]:
         st.error(tr("Please Select a Valid Video Source"))
@@ -1365,6 +2319,21 @@ if start_button:
         st.error(tr("Please Enter the Pixabay API Key"))
         scroll_to_bottom()
         st.stop()
+
+    if getattr(params, "restaurant_mode", False) and params.video_source == "local":
+        restaurant_checks = show_restaurant_mode_guidance(
+            params=params,
+            uploaded_files=uploaded_files,
+            persisted_materials=st.session_state["local_video_materials"],
+        )
+        if restaurant_checks["image_count"] < restaurant_checks["min_images"]:
+            st.error(
+                f"餐厅视频模式目标 {params.target_duration_seconds} 秒至少需要 "
+                f"{restaurant_checks['min_images']} 张图片；当前只有 "
+                f"{restaurant_checks['image_count']} 张。请补充图片后再生成。"
+            )
+            scroll_to_bottom()
+            st.stop()
 
     if uploaded_audio_file:
         task_dir = utils.task_dir(task_id)

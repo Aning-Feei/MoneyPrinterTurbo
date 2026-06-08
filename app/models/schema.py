@@ -78,6 +78,8 @@ class VideoParams(BaseModel):
     video_transition_mode: Optional[VideoTransitionMode] = None
     video_clip_duration: Optional[int] = 5
     video_count: Optional[int] = 1
+    target_duration_seconds: int = 30
+    restaurant_mode: bool = True
 
     video_source: Optional[str] = "pexels"
     video_materials: Optional[List[MaterialInfo]] = (

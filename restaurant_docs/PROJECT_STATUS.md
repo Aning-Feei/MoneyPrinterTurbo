@@ -5,8 +5,8 @@
 - 项目名称：餐饮 AI 宣传视频生成系统
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
-- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（checklist 目标时长展示实现中）
-- 当前下一步：让 WebUI checklist 展示 preflight 新增的目标时长、动态 clip duration、图片总覆盖时长和旁白字数上限；不改 MoneyPrinterTurbo 原业务代码。
+- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（WebUI 餐厅视频模式实现中）
+- 当前下一步：在 WebUI 中直接提供餐厅视频模式、目标时长选择、图片数量拦截和文案长度提示；第一版不改视频合成核心。
 
 ## 当前样本项目
 
@@ -551,3 +551,450 @@ project.json
   - 不修改 preflight.py
   - 不修改 models.py
   - 不修改 MoneyPrinterTurbo 原业务代码
+
+## Step 2-4 WebUI 餐厅视频模式
+
+- 当前目标：
+  - 不再只依赖外部 preflight/checklist
+  - 在 WebUI 中直接加入餐厅视频模式
+  - 让用户选择目标视频时长：30、40、50、60 秒
+  - 根据目标时长、上传图片数量和文案长度给出提示和拦截
+- 当前状态：
+  - 已实现，待 WebUI 手动复测
+  - 本次未启动新的 WebUI 进程
+- 已加入 WebUI 控件：
+  - 餐厅视频模式默认开启
+  - 页面隐藏餐厅视频模式开关
+  - 目标视频时长移动到左侧文案设置区域的视频主题下方
+  - 脚本语言选择隐藏，默认使用中文 zh-CN
+- 餐厅模式下隐藏/锁定通用参数：
+  - 视频来源固定为 local / 本地文件
+  - 视频拼接模式固定为 sequential / 顺序拼接
+  - 同时生成视频数量固定为 1 条
+  - 视频片段最大时长不再手动选择，改为根据目标时长和图片数量动态计算
+- 餐厅模式规则：
+  - 仅在 Local file / 本地文件素材下做第一版检查
+  - 图片数量范围：min=max(6, ceil(target_duration_seconds / 6))，max=floor(target_duration_seconds / 3)
+  - 图片少于最低要求时阻止生成
+  - 图片多于建议上限时 warning，不阻止生成
+  - 推荐 video_clip_duration = clamp(ceil(target_duration_seconds / image_count), 3, 6)
+  - 文案中文字符范围：floor((target_duration_seconds - 6) * 4.0) 到 floor((target_duration_seconds - 3) * 4.0)
+  - 文案偏短 warning：可能导致视频提前结束，部分图片无法出现
+  - 文案偏长 warning：可能导致图片重复播放
+- 生成前兜底：
+  - 餐厅模式开启时再次强制写入 restaurant_mode=True
+  - 再次强制写入 video_language=zh-CN
+  - 餐厅模式开启时再次强制写入 video_source=local
+  - 再次强制写入 video_concat_mode=sequential
+  - 再次强制写入 video_count=1
+  - 如果已有图片，重新计算并写入 video_clip_duration
+- 当前边界：
+  - 未修改 app/services/video.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+  - 非餐厅模式默认关闭，尽量保持原 WebUI 行为不变
+
+## Step 2-5 餐厅模式 AI 文案长度约束
+
+- 当前问题：
+  - 餐厅模式下点击 AI 自动生成视频文案和关键词时，生成文案可能不遵守目标时长对应的中文字符范围
+  - 例如目标 40 秒建议 136-148 个中文字符，但 AI 可能生成超过上限的文案
+- 已调整：
+  - 餐厅模式下调用 AI 生成视频文案前，会把目标视频时长写入 prompt
+  - 会把建议中文旁白长度范围写入 prompt
+  - prompt 明确要求只输出可直接用于视频旁白的文案
+  - prompt 明确要求不要输出分镜编号或解释
+  - 页面在 AI 生成按钮附近显示当前目标时长对应的建议中文字符范围
+- 保持不变：
+  - 关键词生成仍沿用原逻辑
+  - 生成后仍保留文案偏短/偏长 warning
+  - 未修改 app/services/video.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-6 餐厅默认流程页面精简
+
+- 当前目标：
+  - 进一步精简餐厅视频默认流程页面
+  - 将用户必须操作的内容集中到左侧
+  - 减少右侧固定参数说明占用空间
+  - 提高 AI 自动生成文案落入目标字数范围的稳定性
+- 页面调整：
+  - 隐藏右侧固定说明：视频来源、本地文件固定
+  - 隐藏右侧固定说明：视频拼接模式、顺序拼接固定
+  - 隐藏右侧固定说明：同时生成视频数量、1 条固定
+  - 保留上传本地文件入口
+  - 视频比例移动到左侧目标视频时长下方
+  - 视频比例仍写入 params.video_aspect
+- AI 文案生成调整：
+  - 首次生成后统计中文字符数
+  - 如果偏短，自动进行一次扩写
+  - 如果偏长，自动进行一次压缩
+  - 二次修正只执行一次，避免无限循环
+  - 二次修正后仍不在推荐范围内时，提示用户手动微调
+  - 关键词生成仍基于最终文案沿用原逻辑
+- 当前边界：
+  - 未修改 app/services/video.py
+  - 未修改 app/services/voice.py
+  - 未修改 app/services/subtitle.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-7 AI 文案长度程序级兜底
+
+- 当前问题：
+  - 40、50、60 秒目标下，AI 文案即使经过 prompt 约束和一次 AI 二次修正，仍可能普遍偏短
+  - 仅依赖 prompt 或 AI 自我修正不能稳定满足目标中文字符范围
+- 已调整：
+  - AI 二次修正后增加程序级本地兜底
+  - 文案偏短时，使用本地餐厅宣传模板句自动补足
+  - 文案偏长时，按中文标点进行句子级压缩
+  - 本地兜底不调用外部 API
+  - 关键词生成基于最终修正后的文案
+- 保持不变：
+  - 用户手动编辑的视频文案不会被强制改写
+  - 手动文案仍只显示偏短/偏长 warning
+  - 未修改 app/services/video.py
+  - 未修改 app/services/voice.py
+  - 未修改 app/services/subtitle.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-8 视频文案字数硬限制
+
+- 当前目标：
+  - 餐厅默认流程中，视频文案必须严格落入目标时长对应的中文字符范围
+  - 生成按钮只有在文案字数和图片数量都符合要求时才可点击
+- 已调整：
+  - 视频文案输入框下方显示当前中文字符数和推荐范围
+  - 目标视频时长切换后，推荐字数范围自动切换
+  - 文案超过最大中文字符数时自动截断到上限内
+  - 文案低于最小中文字符数时显示还差多少字
+  - 生成按钮基于文案字数和图片数量启用/禁用
+  - 生成前仍保留最终兜底检查，避免异常状态下调用生成任务
+- AI 文案生成：
+  - AI 生成和二次修正后继续进入本地字数归一化
+  - 最终写入文案框的内容也会经过最大字数截断
+  - 关键词生成仍基于最终文案
+- 当前边界：
+  - 未修改 app/services/video.py
+  - 未修改 app/services/voice.py
+  - 未修改 app/services/subtitle.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-9 视频比例布局调整
+
+- 当前目标：
+  - 简化左侧文案设置区域
+  - 将视频比例移动到中间列素材上传区域，靠近本地素材相关操作
+- 已调整：
+  - 左侧文案设置区域不再显示视频比例
+  - 中间列餐厅默认流程中，视频比例显示在上传本地文件模块上方
+  - 视频比例选项保持竖屏 9:16 和横屏 16:9
+  - 继续写入原字段 `params.video_aspect`
+- 当前边界：
+  - 未修改 app/models/schema.py
+  - 未修改 app/services/video.py
+  - 未修改 app/services/voice.py
+  - 未修改 app/services/subtitle.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-10 Streamlit Clear caches 弹窗处理
+
+- 当前问题：
+  - 用户反馈在 WebUI 执行复制操作时会弹出 `Clear caches` 窗口
+- 定位结论：
+  - 未发现项目自定义 `Clear caches` 文案
+  - 未发现项目自定义 clipboard / copy JS 事件绑定
+  - 最可能来源是 Streamlit 内置菜单或 toolbar
+- 已调整：
+  - `st.set_page_config(...)` 中隐藏 Streamlit 默认菜单项
+  - 增加最小 CSS 隐藏 Streamlit 内置菜单、toolbar、Deploy 按钮和状态入口
+- 当前边界：
+  - 不影响页面主体功能
+  - 不影响上传本地文件
+  - 不影响餐厅默认流程参数
+  - 未修改 app/services/video.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-11 左侧文案设置区域继续精简
+
+- 当前目标：
+  - 减少餐厅默认流程左侧文案设置区域的非必要控件
+  - 让用户只处理主题、目标时长、AI 文案、文案正文和关键词
+- 已调整：
+  - 隐藏 `脚本语言：中文（餐厅视频流程默认）` 提示
+  - 隐藏 `高级脚本设置` 模块
+  - 后台仍默认写入 `video_language=zh-CN`
+  - AI 文案生成仍使用默认段落数和默认系统设置
+- 当前边界：
+  - 不影响 AI 生成视频文案按钮
+  - 不影响视频文案输入框
+  - 不影响视频关键词输入框
+  - 未修改 app/models/schema.py
+  - 未修改 app/services/video.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-12 中间列提示继续精简
+
+- 当前目标：
+  - 减少中间列素材上传区域的解释型文字
+  - 保留必要错误和阻止信息
+- 已调整：
+  - 中间列不再显示详细旁白字数范围
+  - 中间列不再显示当前文案中文字符数
+  - 中间列不再显示 `视频片段最大时长不是最终视频总时长` 的解释说明
+  - 文案字数不合格时仍显示简短提示
+- 保持不变：
+  - 底层字数范围计算仍保留
+  - 超长自动截断仍保留
+  - 低于最小字数时按钮禁用/阻止仍保留
+  - 图片数量不足拦截仍保留
+  - 未修改 app/models/schema.py
+  - 未修改 app/services/video.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-13 视频文案输入态自动截断
+
+- 当前目标：
+  - 修复视频文案输入框只提示不够实时的问题
+  - 让超出最大中文字符数的内容不再作为可生成文案进入后端
+- 已调整：
+  - 视频文案输入框绑定独立 session key `video_script_input`
+  - 后端通过 `on_change` 统计 CJK 中文字符数，作为兜底校验
+  - 超过当前目标时长最大字数时，兜底截断后同步写回 `video_script`
+  - 字数显示基于截断后的最终文案
+- 保持不变：
+  - 低于最小字数时仍禁用/阻止生成
+  - AI 自动生成文案仍经过最大字数限制
+  - 未修改 app/models/schema.py
+  - 未修改 app/services/video.py
+  - 未修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-14 视频文案微博式输入框限制
+
+- 当前目标：
+  - 将视频文案字数限制从 `输入后 rerun 截断` 升级为更接近新浪微博的输入体验
+  - 达到最大中文字符数后，继续输入中文不再进入输入框
+  - 粘贴超长内容时，只接收允许范围内的部分
+- 已调整：
+  - 保留 Streamlit 原生 `st.text_area`，确保值仍进入 `video_script_input` / `params.video_script`
+  - 使用 `st.components.v1.html` 注入最小前端 JS，不新增依赖
+  - 前端监听 `beforeinput`，在候选文本超过最大 CJK 字符数时阻止继续输入
+  - 前端监听 `paste`，粘贴超长文案时只保留不超过最大 CJK 字符数的部分
+  - 前端监听 `input`，作为浏览器端安全兜底并实时更新字数状态
+  - 字数提示显示 `还差 X 字`、`还可输入 Y 字`、`已达上限`
+  - 后端仍保留最大字数兜底、最小字数阻止生成和图片数量阻止生成
+- 当前边界：
+  - 不新增 Streamlit custom component 依赖
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-15 Clear caches 弹窗再次处理
+
+- 当前问题：
+  - 用户反馈 WebUI 中执行复制操作时仍会弹出 `Clear caches` 窗口
+  - 这是当前体验阻塞问题，优先处理
+- 定位结论：
+  - 未发现项目自定义 `Clear caches` 文案或按钮
+  - 未发现项目自定义 copy / clipboard 复制事件绑定
+  - 当前 `clipboardData` 仅用于视频文案输入框的 paste 限制，不监听 copy，不会主动打开弹窗
+  - 最可能来源仍是 Streamlit 内置 header / toolbar / menu 入口
+- 已调整：
+  - 在 `webui/Main.py` 中加固 Streamlit 内置菜单隐藏 CSS
+  - 隐藏 `#MainMenu`、`stMainMenu`、`stHeader`、`stToolbar`、`stDeployButton`、`stAppDeployButton`
+  - 隐藏 `.stDeployButton`、`header` 以及常见 Main menu / Deploy 按钮入口
+- 当前边界：
+  - 保留浏览器正常复制能力
+  - 不影响页面主体、上传文件、生成按钮和餐厅默认流程
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-16 AI 生成按钮文案精简
+
+- 当前目标：
+  - 精简左侧 AI 生成按钮显示文案
+  - 将 `点击使用AI根据主题生成视频文案和视频关键词` 类似长文案统一改为 `AI生成视频文案`
+- 已调整：
+  - 修改中文 i18n 文案 `Generate Video Script and Keywords`
+  - 按钮 key 和调用逻辑保持不变
+  - AI 仍按当前逻辑根据主题生成视频文案
+  - 如果当前逻辑生成关键词，则继续保持原行为
+  - 餐厅模式下字数约束、二次修正和本地兜底逻辑保持不变
+- 当前边界：
+  - 不修改 webui/Main.py 的按钮功能逻辑
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-17 AI 文案与关键词前台流程精简
+
+- 当前目标：
+  - 左侧前台只保留一个 `AI生成视频文案` 按钮
+  - 点击后生成视频文案，并自动根据最终视频文案生成关键词
+  - 隐藏独立关键词生成按钮、视频关键词标题和视频关键词输入框
+- 已调整：
+  - 餐厅默认流程下不再显示 `点击使用AI根据文案生成视频关键词` 按钮
+  - 餐厅默认流程下不再显示视频关键词输入框
+  - `AI生成视频文案` 按钮仍先生成视频文案
+  - 文案经过餐厅模式字数约束、二次修正和本地兜底后，再用于关键词生成
+  - 自动生成的关键词仍写入 `params.video_terms`
+  - 如果关键词生成失败，只提示 warning，并使用本地默认关键词兜底
+  - 手动修改文案后，不自动调用关键词 API
+  - 点击生成视频时，如果关键词为空，使用本地默认关键词兜底，避免后端再调用关键词 API
+- 当前边界：
+  - 不删除 `params.video_terms` 字段
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/task.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-18 Clear caches 弹窗强制抑制
+
+- 当前问题：
+  - 用户反馈 WebUI 中复制文本时仍反复弹出 `Clear caches` 窗口
+  - 该问题作为当前体验阻塞问题优先处理
+- 定位结论：
+  - 未发现项目自定义 `Clear caches` 文案或按钮
+  - 未发现项目自定义 copy / clipboard 复制事件绑定
+  - 当前自定义 `clipboardData` 仅用于视频文案输入框的 paste 限制，不监听 copy
+  - 更可能是 Streamlit 内置 toolbar / menu / cache 弹窗
+- 已调整：
+  - 新增集中 helper `hide_streamlit_dev_chrome_and_cache_popup()`
+  - 在 `st.set_page_config(...)` 后立即调用
+  - 整合并加固 Streamlit 顶部菜单 / toolbar / deploy / status 隐藏 CSS
+  - 注入最小 JS，使用 `MutationObserver` 监听 DOM
+  - 当页面出现 `Clear cache`、`Clear caches`、`Clear Cache`、`Clear Caches`、`清除缓存` 文案时，自动隐藏最近的菜单、弹窗或 popover 容器
+- 当前边界：
+  - 不拦截 Ctrl+C / Cmd+C
+  - 不阻止浏览器正常复制文本
+  - 不删除 `st.cache_data` 或其他缓存机制
+  - 不影响上传文件、生成按钮和餐厅默认流程
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-19 WebUI 品牌显示调整
+
+- 当前目标：
+  - 将 WebUI 页面左上角显示从 `MoneyPrinterTurbo v1.2.9` 调整为 `TwinkleBite AI`
+  - 仅调整 WebUI 品牌显示文案
+- 已调整：
+  - `webui/Main.py` 中浏览器页面标题改为 `TwinkleBite AI`
+  - `webui/Main.py` 中左上角 `st.title(...)` 改为 `TwinkleBite AI`
+  - 页面不再显示版本号后缀
+- 当前边界：
+  - 不全局替换 `MoneyPrinterTurbo`
+  - 不修改项目包名
+  - 不修改 Git 仓库名
+  - 不修改历史文档中的原项目说明
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-20 Cmd+C 页面空白稳定性修复
+
+- 当前问题：
+  - 用户反馈 WebUI 中连按 `Cmd+C` 复制会造成页面空白
+  - 最近加入的 `Clear caches` 抑制逻辑包含全局 `MutationObserver` 和 DOM 隐藏逻辑，存在误伤 Streamlit 页面主体的风险
+- 已调整：
+  - 移除 `Clear caches` 全局 `MutationObserver` / 弹窗 DOM 删除逻辑
+  - 不再根据 `Clear cache(s)` 文案扫描和隐藏 `div`、`section`、`modal`、`popover` 等容器
+  - 保留最小 Streamlit 菜单 CSS 隐藏，仅隐藏 `#MainMenu`、`[data-testid="stToolbar"]`、`[data-testid="stStatusWidget"]` 和 `.stDeployButton`
+  - 不再隐藏整个 `header`
+  - 不再隐藏 `[data-testid="stDecoration"]`、`[data-testid="baseButton-header"]` 等高风险选择器
+- 当前边界：
+  - 页面稳定性优先于强制抑制 `Clear caches`
+  - 不拦截 `Cmd+C` / `Ctrl+C`
+  - 不监听 `copy` 事件
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-21 Clear caches 快捷键精确拦截
+
+- 当前问题：
+  - 移除全局 `MutationObserver` 后，页面空白问题已缓解
+  - 用户反馈连按复制仍会触发 `Clear caches` 弹窗
+- 已调整：
+  - 不恢复全局 DOM 扫描
+  - 新增精确 keyboard guard
+  - 普通 `Cmd+C` / `Ctrl+C` 不拦截，保留正常复制
+  - 仅在非输入区域拦截带 `Shift` 或 `Alt` 的 C 组合键，例如 `Cmd+Shift+C`、`Ctrl+Shift+C`、`Cmd+Alt+C`、`Ctrl+Alt+C`
+  - 在 `input`、`textarea`、`contenteditable` 中绝不拦截
+  - 继续保留最小 Streamlit 菜单 / toolbar CSS 隐藏
+- 当前边界：
+  - 不使用全局 `MutationObserver`
+  - 不扫描或删除 `modal`、`popover`、`div`、`section` 等页面容器
+  - 不监听 `copy` 事件
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-22 Clear caches 原生弹窗精确抑制
+
+- 当前问题：
+  - 用户截图确认普通 `Cmd+C` 连按后仍会触发 Streamlit 原生 `Clear caches` dialog
+  - `keyboard guard` 不足以彻底阻止该弹窗
+- 已调整：
+  - 保留最小 Streamlit toolbar / menu CSS
+  - 保留普通 `Cmd+C` / `Ctrl+C` 复制能力
+  - 新增精确 `Clear caches` dialog guard
+  - 使用 `MutationObserver` 仅监听 dialog / modal 候选，不扫描全页面 `div` / `section`
+  - 候选范围限制为 `[role="dialog"]`、`[data-baseweb="modal"]`、`[data-testid="stModal"]`、`[data-testid*="Modal"]`
+  - 只有候选弹窗文本同时包含 `Clear caches` 和缓存确认文案时才处理
+  - 优先点击 `Cancel` 或关闭按钮；找不到按钮时才隐藏该 dialog
+- 当前边界：
+  - 不恢复全局 DOM 扫描
+  - 不扫描或隐藏全页面 `div`、`section`、`header`、app 容器
+  - 不拦截普通复制
+  - 不修改 app/models/schema.py
+  - 不修改 app/services/video.py
+  - 不修改 app/services/voice.py
+  - 不修改 app/services/subtitle.py
+  - 不修改 TTS、字幕、ffmpeg 合成核心
+
+## Step 2-23 WebUI 餐厅默认流程收口
+
+- 当前状态：
+  - 本轮 WebUI 餐厅默认流程改造已完成，准备提交
+  - 用户已确认 `Clear caches` 复制阻塞问题已解决
+  - 页面不再因复制操作出现阻塞问题
+- 本轮核心结果：
+  - WebUI 品牌显示调整为 `TwinkleBite AI`
+  - 餐厅视频流程默认开启
+  - 目标视频时长支持 30 / 40 / 50 / 60 秒
+  - 视频来源固定本地文件并隐藏通用选择
+  - 拼接模式固定顺序拼接并隐藏通用选择
+  - 视频片段时长根据目标时长和图片数量自动计算
+  - 同时生成视频数量固定 1
+  - 视频比例移动到中间列上传本地文件模块上方
+  - 左侧隐藏脚本语言、高级脚本设置和独立关键词输入
+  - 前台只保留 `AI生成视频文案` 一个 AI 按钮
+  - AI 生成文案后自动根据最终文案生成关键词，并写入 `params.video_terms`
+  - 文案中文字符数成为硬性生成条件
+  - 图片数量不足时阻止生成
+  - 精确抑制 Streamlit 原生 `Clear caches` dialog，避免复制体验阻塞
+- 当前边界：
+  - 未修改 app/services/video.py
+  - 未修改 app/services/voice.py
+  - 未修改 app/services/subtitle.py
+  - 未修改 config.toml
+  - 未修改 restaurant_engine/
+  - 未修改 storage/
+  - 未修改 TTS、字幕、ffmpeg 视频合成核心
+  - 未提交生成视频、音频、字幕、报告或缓存文件
