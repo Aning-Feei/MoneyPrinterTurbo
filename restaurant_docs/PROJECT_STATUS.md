@@ -396,3 +396,55 @@
 - 或把 preflight_report.json 转成“人工操作清单”。
 - 或继续做结构化镜头计划，但仍暂不改 MoneyPrinterTurbo 原业务代码。
 - 出差/换电脑前建议 push 当前分支到远程仓库。
+
+## 餐厅视频半自动流程收口
+
+当前半自动流程已形成：
+
+```text
+project.json
+-> python3 -m restaurant_engine.validate_project <project.json>
+-> python3 -m restaurant_engine.preflight_project <project.json>
+-> python3 -m restaurant_engine.webui_checklist <preflight_report.json>
+-> 人工按 webui_checklist.md 填 WebUI
+-> 生成视频
+```
+
+### 当前已有工具
+
+- restaurant_engine.validate_project
+  - 只读校验 project.json 和图片素材规范
+- restaurant_engine.preflight_project
+  - 生成 preflight_report.json
+  - 输出镜头顺序、旁白时长估算、clip duration 推荐、循环风险、WebUI 参数建议
+- restaurant_engine.webui_checklist
+  - 读取 preflight_report.json
+  - 生成 webui_checklist.md
+  - 正向样本提示可以生成
+  - 负向样本提示不建议生成并列出风险
+
+### 当前已验证
+
+- 第 1 阶段：WebUI 餐厅图文视频样片跑通。
+- 第 2 阶段：
+  - preflight 正向样本通过
+  - preflight 负向样本能发现图片不足、角色缺失、循环风险
+  - checklist 正向样本能生成 WebUI 填表清单
+  - checklist 负向样本能明确提示不建议生成
+
+### 当前边界
+
+- 未修改 MoneyPrinterTurbo 原业务代码。
+- 未接入 WebUI 自动填表。
+- 未调用外部 API。
+- 未生成视频。
+- 只做生成前校验、预检和人工操作清单。
+- preflight_report.json 和 webui_checklist.md 生成在样本目录或临时目录，不进入 Git。
+- storage/ 和生成产物不进入 Git。
+
+### 当前建议下一步
+
+- 可选方向 A：继续增强 webui_checklist.md，加入更具体的 WebUI 页面字段映射。
+- 可选方向 B：增加结构化镜头计划字段，例如每个 shot 的标题、旁白片段、画面用途。
+- 可选方向 C：准备 push 当前分支到 GitHub，方便换电脑继续。
+- 不建议立即修改 MoneyPrinterTurbo 原业务代码。
