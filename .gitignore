@@ -10,7 +10,10 @@
 /*/__pycache__/*
 .vscode
 /**/.streamlit
-__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 logs/
 
 node_modules
@@ -34,3 +37,12 @@ debug_*.py
 test_*.py
 !test/services/test_*.py
 streamlit.log
+
+# Local runtime logs and generated prototype outputs
+webui.log
+webui.pid
+*.log
+*.pid
+storage/
+restaurant_engine/output/
+restaurant_engine/**/output/
