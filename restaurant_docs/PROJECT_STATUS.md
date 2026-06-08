@@ -6,7 +6,7 @@
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
 - 当前阶段：第 1 阶段：MoneyPrinterTurbo 基础生成链路验证（进行中）
-- 当前下一步：无代码复测 6 张完整样本图片、Sequential 拼接和 18 秒以上旁白
+- 当前下一步：第三次无代码复测 6 张完整图片、Sequential 拼接、每段 6 秒
 
 ## 当前样本项目
 
@@ -33,6 +33,7 @@
 15. 定位 WebUI 基础生成测试产物路径
 16. 完成人工播放检查 final-1.mp4
 17. 完成图片顺序不合理的只读根因定位
+18. 完成第二次 WebUI Sequential 复测和循环原因定位
 
 ## 当前阻塞点
 
@@ -40,7 +41,7 @@
 
 ## 下一步目标
 
-无代码复测：上传完整 6 张样本图片，WebUI 拼接模式选择 Sequential/顺序拼接，使用 18 秒以上旁白覆盖所有图片；暂不修改业务代码。
+第三次无代码复测：继续使用完整 6 张图片和 Sequential/顺序拼接，保持当前长旁白，将 video_clip_duration 从 3 秒提高到 6 秒，验证是否不再循环图片；暂不修改业务代码。
 
 ## 第 0 阶段 0.9 状态
 
@@ -158,3 +159,61 @@
   - 使用更长旁白，至少覆盖 6 张图 * 3 秒，约 18 秒以上
   - 如果无代码复测通过，再决定是否需要代码层强制顺序模式
   - 如果后续做餐厅专用引擎，应在 restaurant_engine 层生成明确镜头顺序计划，不依赖 WebUI random 合成
+
+## 第 1 阶段第二次 Sequential 复测
+
+- task_id：
+  - 57ddf7ec-e50b-4b03-be4f-714deabdeafc
+- 复测设置：
+  - 上传完整 6 张图片：是
+  - 拼接模式：Sequential/顺序
+  - 使用更长旁白：是
+  - video_clip_duration：3 秒
+- 复测结果：
+  - 生成 final-1.mp4：是
+  - 视频正常播放：是
+  - 图片顺序正确：是
+  - 6 张图片都出现：是
+  - 语音正常：是
+  - 字幕正常：是
+  - 字幕和语音同步：是
+  - 节奏可接受：是
+  - 终端无新错误
+  - 最大问题：视频播放了两遍图片
+- 产物信息：
+  - storage/tasks/57ddf7ec-e50b-4b03-be4f-714deabdeafc/final-1.mp4，约 9.6M，时长 00:00:33.00，分辨率 1080x1920
+  - storage/tasks/57ddf7ec-e50b-4b03-be4f-714deabdeafc/audio.mp3，约 181K，时长 00:00:30.91
+  - storage/tasks/57ddf7ec-e50b-4b03-be4f-714deabdeafc/script.json，约 3.5K
+  - storage/tasks/57ddf7ec-e50b-4b03-be4f-714deabdeafc/subtitle.srt，约 807B
+  - storage/tasks/57ddf7ec-e50b-4b03-be4f-714deabdeafc/combined-1.mp4，约 9.1M
+- script.json 关键信息：
+  - video_concat_mode 为 sequential
+  - video_materials 数量为 6，顺序完整且正确：
+    1. 01_intro.jpg
+    2. 02_interior.jpg
+    3. 03_dish_1.jpg
+    4. 04_dish_2.jpg
+    5. 05_dining.jpeg
+    6. 06_extra.jpg
+  - 没有发现 clips/scenes/duration 的结构化镜头字段
+  - video_clip_duration 为 3
+- 只读日志定位结论：
+  - 音频时长：30.91 秒
+  - 每段图片视频最大时长：3 秒
+  - 原始 6 个 clip 总时长约：18.00 秒
+  - 日志显示：video duration (18.00s) is shorter than audio duration (30.91s), looping clips to match audio length.
+  - 日志显示：looped 5 clips
+  - 日志显示：concatenating 11 clips with ffmpeg
+- 当前结论：
+  - 第一次图片顺序问题已通过 WebUI 选择 Sequential/顺序拼接解决
+  - 第二次复测证明：顺序模式有效，完整 6 张图能按正确顺序进入最终视频
+  - 当前新问题不是顺序错误，而是画面总时长不足导致系统循环图片
+  - 重复播放根因：6 张图 * 3 秒 = 18 秒，短于 30.91 秒旁白，所以 Sequential 模式下仍会循环已有 clip 补足音频
+- 下一步建议：
+  - 第三次无代码复测：继续使用完整 6 张图片
+  - 继续使用 Sequential/顺序拼接
+  - 保持当前长旁白
+  - 将 video_clip_duration 从 3 秒提高到 6 秒
+  - 目标：6 张图 * 6 秒 = 36 秒，覆盖约 30.91 秒音频，验证是否不再循环图片
+  - 暂不修改业务代码
+  - 后续餐厅专用引擎应在生成前计算 图片数 * 每张时长 >= 旁白时长，并给出参数建议或自动调整
