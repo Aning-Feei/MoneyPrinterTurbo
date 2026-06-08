@@ -48,3 +48,44 @@ class ValidationReport:
     category_checks: dict[str, bool] = field(default_factory=dict)
     issues: list[ValidationIssue] = field(default_factory=list)
     passed: bool = False
+
+
+@dataclass(frozen=True)
+class Shot:
+    index: int
+    role: str
+    image_name: str
+    image_path: str
+    recommended_duration: int
+
+
+@dataclass
+class ShotPlan:
+    shots: list[Shot] = field(default_factory=list)
+    total_image_duration: int = 0
+    missing_roles: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class TimingRecommendation:
+    estimated_narration_seconds: float
+    recommended_clip_duration: int
+    will_loop: bool
+
+
+@dataclass
+class RenderParameterRecommendation:
+    video_concat_mode: str
+    video_clip_duration: int
+    video_source: str
+    notes: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PreflightReport:
+    ok: bool
+    project_id: str
+    shot_plan: ShotPlan
+    timing: TimingRecommendation
+    render_params: RenderParameterRecommendation
+    issues: list[ValidationIssue] = field(default_factory=list)

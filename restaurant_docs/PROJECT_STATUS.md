@@ -5,8 +5,8 @@
 - 项目名称：餐饮 AI 宣传视频生成系统
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
-- 当前阶段：第 1 阶段：MoneyPrinterTurbo 基础生成链路验证（进行中）
-- 当前下一步：固化餐厅样片输入规范，整理 restaurant_engine 和文档结构
+- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（进行中）
+- 当前下一步：验证最小版预检器输出，并根据报告调整餐厅专用镜头计划规则
 
 ## 当前样本项目
 
@@ -35,6 +35,7 @@
 17. 完成图片顺序不合理的只读根因定位
 18. 完成第二次 WebUI Sequential 复测和循环原因定位
 19. 完成第三次 WebUI 参数基线复测
+20. 开始第 2 阶段并实现最小版预检器
 
 ## 当前阻塞点
 
@@ -42,7 +43,7 @@
 
 ## 下一步目标
 
-固化餐厅样片输入规范，整理 restaurant_engine 和文档结构，规划餐厅专用镜头顺序/参数预检器，并决定如何处理 .gitignore 和未跟踪文档/代码。
+验证最小版预检器输出，确认镜头顺序计划、旁白时长估算、clip duration 建议、循环风险判断和 WebUI 参数建议是否符合餐厅样片工作流。
 
 ## 第 0 阶段 0.9 状态
 
@@ -272,3 +273,23 @@
   - 整理 restaurant_engine 和文档结构
   - 规划餐厅专用镜头顺序/参数预检器
   - 决定如何处理 .gitignore 和未跟踪文档/代码
+
+## 第 2 阶段状态
+
+进行中。已实现最小版餐厅视频预检器：
+
+- 输入：project.json + 图片目录 + 旁白文本
+- 输出：preflight_report.json
+- 能力：
+  - 镜头顺序计划
+  - 旁白时长估算
+  - 推荐 video_clip_duration
+  - 图片循环风险判断
+  - WebUI 参数建议
+  - warnings/errors
+- 约束：
+  - 纯本地规则
+  - 不调用外部 API
+  - 不调用 TTS
+  - 不生成视频
+  - 不修改 MoneyPrinterTurbo 原有业务代码

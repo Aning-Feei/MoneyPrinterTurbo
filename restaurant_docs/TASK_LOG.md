@@ -333,3 +333,33 @@
   - 整理 restaurant_engine 和文档结构
   - 规划餐厅专用镜头顺序/参数预检器
   - 决定如何处理 .gitignore 和未跟踪文档/代码
+
+## 第 2 阶段 - 最小版餐厅视频预检器
+
+- 本次目标：
+  - 实现纯本地、只读、规则型预检器
+  - 输入 project.json + 图片目录 + 旁白文本
+  - 输出 preflight_report.json
+- 新增文件：
+  - restaurant_engine/preflight.py
+  - restaurant_engine/preflight_project.py
+  - restaurant_docs/PREFLIGHT_SPEC.md
+- 修改文件：
+  - restaurant_engine/models.py
+  - restaurant_engine/__init__.py
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- 预检器能力：
+  - 生成餐厅镜头顺序计划
+  - 估算旁白时长
+  - 推荐 video_clip_duration
+  - 判断图片循环风险
+  - 推荐 WebUI 参数
+  - 输出 warnings/errors
+- 运行约束：
+  - 不调用外部 API
+  - 不调用 DeepSeek
+  - 不调用 TTS
+  - 不读取图片内容做视觉识别
+  - 不生成视频
+  - 不修改 MoneyPrinterTurbo 原有业务代码
