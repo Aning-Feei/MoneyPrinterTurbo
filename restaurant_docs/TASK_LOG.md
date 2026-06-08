@@ -437,3 +437,37 @@
   - 未修改 clip duration 推荐逻辑
   - 未修改 will_loop 判断逻辑
   - 未修改 MoneyPrinterTurbo 原有业务代码
+
+## 当前阶段收口总结
+
+- 第 1 阶段完成：
+  - WebUI 成功启动
+  - WebUI 基础餐厅图文视频生成链路通过
+  - 可用样片 task：2dceacbf-bf55-494a-8004-a3f0eacfb067
+  - 可用样片：storage/tasks/2dceacbf-bf55-494a-8004-a3f0eacfb067/final-1.mp4
+  - 推荐 WebUI 参数基线：
+    - 完整 6 张图
+    - Sequential/顺序拼接
+    - video_clip_duration = 6
+    - 确保 图片数 * 每张图片时长 >= 旁白时长
+- 第 2 阶段当前完成：
+  - restaurant_engine 已有只读 validator
+  - 已新增 preflight planner
+  - 可生成 preflight_report.json
+  - 正向样本通过
+  - 负向样本可识别图片不足、角色缺失和循环风险
+  - CLI 已明确区分 preflight completed successfully 和 preflight completed with validation errors: 预检已完成，但存在校验错误
+- 当前代码边界：
+  - 未修改 MoneyPrinterTurbo 原业务代码
+  - 未接入 WebUI
+  - 未调用外部 API
+  - 不生成视频，只做生成前预检
+  - 生成产物和 preflight_report.json 不进入 Git
+- 当前可用命令：
+  - python3 -m restaurant_engine.validate_project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json
+  - python3 -m restaurant_engine.preflight_project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json
+- 下一步建议：
+  - 增加更清晰的 WebUI 参数填表指南
+  - 或把 preflight_report.json 转成“人工操作清单”
+  - 或继续做结构化镜头计划，但仍暂不改 MoneyPrinterTurbo 原业务代码
+  - 出差/换电脑前建议 push 当前分支到远程仓库
