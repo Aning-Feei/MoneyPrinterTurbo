@@ -998,3 +998,36 @@ project.json
   - 未修改 storage/
   - 未修改 TTS、字幕、ffmpeg 视频合成核心
   - 未提交生成视频、音频、字幕、报告或缓存文件
+
+## Step 2-24 TwinkleBite AI WebUI 初版里程碑
+
+- 当前阶段里程碑：
+  - `TwinkleBite AI` 默认餐厅视频 WebUI 初版已完成并提交
+  - 提交：`f287eb85c5131dc305bf6e5d651d4b2161e3839a`
+  - 提交说明：`feat: add default restaurant video WebUI workflow`
+- 已实现能力：
+  - WebUI 品牌显示为 `TwinkleBite AI`
+  - 餐厅视频流程默认开启
+  - 目标视频时长支持 30 / 40 / 50 / 60 秒
+  - 视频来源固定本地文件
+  - 拼接模式固定顺序拼接
+  - 视频片段时长按目标时长和图片数量自动计算
+  - 同时生成视频数量固定 1
+  - 视频比例移至上传本地文件模块上方
+  - 隐藏脚本语言、高级脚本设置、关键词输入框、独立关键词生成按钮
+  - 只保留 `AI生成视频文案` 按钮
+  - AI 生成视频文案后自动生成关键词
+  - 视频文案字数按目标时长硬限制
+  - 图片数量不足会阻止生成
+  - `Clear caches` 复制弹窗问题已处理
+- 当前边界：
+  - 未修改 app/services/video.py
+  - 未修改 app/services/voice.py
+  - 未修改 app/services/subtitle.py
+  - 未修改 config.toml
+  - 未提交 storage/、.pyc、__pycache__/、生成产物
+- 下一步建议：
+  - 尽快 push 当前分支到远程仓库
+  - 用至少 2-3 个真实餐厅样本做完整生成测试
+  - 记录每个样本的视频质量、图片是否全部出现、是否重复、字幕/语音同步情况
+  - 暂停继续堆 UI 小改动，优先做稳定性测试
