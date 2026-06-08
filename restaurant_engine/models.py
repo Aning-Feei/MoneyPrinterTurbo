@@ -71,8 +71,12 @@ class ShotPlan:
 
 @dataclass(frozen=True)
 class TimingRecommendation:
+    target_duration_seconds: int
     estimated_narration_seconds: float
     recommended_clip_duration: int
+    total_image_duration: int
+    narration_safe_seconds: int
+    narration_max_cjk_chars: int
     will_loop: bool
 
 

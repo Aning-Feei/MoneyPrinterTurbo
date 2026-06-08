@@ -5,8 +5,8 @@
 - 项目名称：餐饮 AI 宣传视频生成系统
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
-- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（validator 目标时长校验实现中）
-- 当前下一步：先完成 validator 层 target_duration_seconds 和动态图片数量范围校验；暂不修改 preflight/checklist，不改 MoneyPrinterTurbo 原业务代码。
+- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（preflight 目标时长计算实现中）
+- 当前下一步：让 preflight 使用 target_duration_seconds 动态计算推荐 clip duration、图片总覆盖时长和旁白字数上限；暂不修改 checklist，不改 MoneyPrinterTurbo 原业务代码。
 
 ## 当前样本项目
 
@@ -507,4 +507,28 @@ project.json
 - 当前边界：
   - 只改 validator 相关代码和文档
   - 不修改 preflight/checklist 逻辑
+  - 不修改 MoneyPrinterTurbo 原业务代码
+
+## Step 2-2 preflight 目标时长计算
+
+- 当前目标：
+  - preflight 读取 `target_duration_seconds`
+  - 缺少字段时复用 validator warning，并默认按 30 秒处理
+  - 根据目标时长和图片数量动态推荐 `video_clip_duration`
+  - 输出图片总覆盖时长和旁白安全字数上限
+- 动态计算：
+  - raw_clip_duration = ceil(target_duration_seconds / image_count)
+  - recommended_clip_duration = clamp(raw_clip_duration, 3, 6)
+  - total_image_duration = image_count * recommended_clip_duration
+  - will_loop = total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
+- 新增旁白上限：
+  - narration_safe_seconds = target_duration_seconds - 3
+  - narration_max_cjk_chars = floor(narration_safe_seconds * 4.0)
+- 新增 warning：
+  - narration_too_long_for_target_duration
+  - image_duration_shorter_than_target_duration
+  - image_duration_shorter_than_narration
+- 当前边界：
+  - 不修改 validator.py
+  - 不修改 webui_checklist.py
   - 不修改 MoneyPrinterTurbo 原业务代码

@@ -638,3 +638,38 @@
   - 不修改 webui_checklist.py
   - 不安装依赖
   - 不调用外部 API
+
+## Step 2-2 - preflight 目标时长动态时长计算
+
+- 本次目标：
+  - 只实现 preflight 层
+  - 使用 `target_duration_seconds` 动态计算 `recommended_clip_duration`
+  - 输出图片总覆盖时长和旁白字数安全上限
+  - 暂不修改 validator/checklist 逻辑
+- 允许修改：
+  - restaurant_engine/models.py
+  - restaurant_engine/preflight.py
+  - restaurant_docs/PREFLIGHT_SPEC.md
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- 新增 timing 字段：
+  - target_duration_seconds
+  - total_image_duration
+  - narration_safe_seconds
+  - narration_max_cjk_chars
+- 新增规则：
+  - raw_clip_duration = ceil(target_duration_seconds / image_count)
+  - recommended_clip_duration = clamp(raw_clip_duration, 3, 6)
+  - total_image_duration = image_count * recommended_clip_duration
+  - will_loop = total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
+- 新增 warning：
+  - narration_too_long_for_target_duration
+  - image_duration_shorter_than_target_duration
+  - image_duration_shorter_than_narration
+- 保持不变：
+  - shot 顺序不变
+  - video_concat_mode 仍推荐 sequential
+  - video_source 仍推荐 local
+  - 不修改 MoneyPrinterTurbo 原业务代码
+  - 不修改 validator.py
+  - 不修改 webui_checklist.py

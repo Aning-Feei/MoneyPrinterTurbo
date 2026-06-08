@@ -21,6 +21,10 @@ from .validator import validate_project
 
 ROLE_ORDER = ["intro", "interior", "dish_1", "dish_2", "dining", "extra"]
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+MIN_CLIP_DURATION_SECONDS = 3
+MAX_CLIP_DURATION_SECONDS = 6
+NARRATION_SECONDS_BUFFER = 3
+NARRATION_SAFE_CJK_CHARS_PER_SECOND = 4.0
 NARRATION_FIELDS = [
     "narration",
     "voiceover",
@@ -70,12 +74,27 @@ def run_preflight(project_path: str | Path) -> PreflightReport:
         )
 
     estimated_seconds = estimate_narration_duration(narration_text)
-    recommended_duration = recommend_clip_duration(len(image_files), estimated_seconds)
+    target_duration_seconds = validation_report.target_duration_seconds
+    recommended_duration = recommend_clip_duration(
+        image_count=len(image_files),
+        target_duration_seconds=target_duration_seconds,
+    )
+    narration_safe_seconds = get_narration_safe_seconds(target_duration_seconds)
+    narration_max_cjk_chars = get_narration_max_cjk_chars(target_duration_seconds)
+    _validate_narration_length(
+        narration_text=narration_text,
+        narration_max_cjk_chars=narration_max_cjk_chars,
+        target_duration_seconds=target_duration_seconds,
+        issues=issues,
+    )
     shot_plan = build_shot_plan(image_files, recommended_duration)
     timing = validate_timing_coverage(
         image_count=len(image_files),
         clip_duration=recommended_duration,
+        target_duration_seconds=target_duration_seconds,
         estimated_narration_seconds=estimated_seconds,
+        narration_safe_seconds=narration_safe_seconds,
+        narration_max_cjk_chars=narration_max_cjk_chars,
         issues=issues,
     )
     render_params = recommend_webui_params(timing)
@@ -135,26 +154,57 @@ def estimate_narration_duration(text: str) -> float:
 
 def recommend_clip_duration(
     image_count: int,
-    estimated_narration_seconds: float,
-    min_seconds: int = 3,
-    max_seconds: int = 8,
+    target_duration_seconds: int,
+    min_seconds: int = MIN_CLIP_DURATION_SECONDS,
+    max_seconds: int = MAX_CLIP_DURATION_SECONDS,
 ) -> int:
     if image_count <= 0:
         return min_seconds
 
-    required_seconds = math.ceil(estimated_narration_seconds / image_count)
+    required_seconds = math.ceil(target_duration_seconds / image_count)
     return min(max(required_seconds, min_seconds), max_seconds)
+
+
+def get_narration_safe_seconds(target_duration_seconds: int) -> int:
+    return max(1, target_duration_seconds - NARRATION_SECONDS_BUFFER)
+
+
+def get_narration_max_cjk_chars(target_duration_seconds: int) -> int:
+    return math.floor(
+        get_narration_safe_seconds(target_duration_seconds)
+        * NARRATION_SAFE_CJK_CHARS_PER_SECOND
+    )
 
 
 def validate_timing_coverage(
     image_count: int,
     clip_duration: int,
+    target_duration_seconds: int,
     estimated_narration_seconds: float,
+    narration_safe_seconds: int,
+    narration_max_cjk_chars: int,
     issues: list[ValidationIssue] | None = None,
 ) -> TimingRecommendation:
     total_image_duration = image_count * clip_duration
-    will_loop = total_image_duration < estimated_narration_seconds
-    if will_loop and issues is not None:
+    will_loop = total_image_duration < max(
+        target_duration_seconds, estimated_narration_seconds
+    )
+
+    if total_image_duration < target_duration_seconds and issues is not None:
+        issues.append(
+            ValidationIssue(
+                code="image_duration_shorter_than_target_duration",
+                field="video_clip_duration",
+                severity="warning",
+                message=(
+                    f"Image coverage is {total_image_duration}s, shorter than "
+                    f"target duration {target_duration_seconds}s. Increase images "
+                    "or clip duration to avoid looping."
+                ),
+            )
+        )
+
+    if total_image_duration < estimated_narration_seconds and issues is not None:
         issues.append(
             ValidationIssue(
                 code="image_duration_shorter_than_narration",
@@ -163,15 +213,19 @@ def validate_timing_coverage(
                 message=(
                     f"Image coverage is {total_image_duration}s, shorter than "
                     f"estimated narration {estimated_narration_seconds}s. "
-                    "WebUI may loop clips; increase duration, add images, or "
+                    "WebUI may loop clips; increase target duration, add images, or "
                     "shorten narration."
                 ),
             )
         )
 
     return TimingRecommendation(
+        target_duration_seconds=target_duration_seconds,
         estimated_narration_seconds=estimated_narration_seconds,
         recommended_clip_duration=clip_duration,
+        total_image_duration=total_image_duration,
+        narration_safe_seconds=narration_safe_seconds,
+        narration_max_cjk_chars=narration_max_cjk_chars,
         will_loop=will_loop,
     )
 
@@ -182,7 +236,7 @@ def recommend_webui_params(
     notes = [
         "Use Local file source with complete restaurant image set.",
         "Use Sequential concat mode; do not use random for restaurant shot order.",
-        "Ensure image_count * video_clip_duration >= narration duration.",
+        "Ensure image_count * video_clip_duration covers target and narration duration.",
     ]
     if timing.will_loop:
         notes.append(
@@ -275,6 +329,28 @@ def _extract_narration_text(data: dict[str, Any]) -> tuple[str, str | None]:
         if isinstance(value, str) and value.strip():
             return value.strip(), field_name
     return "", None
+
+
+def _validate_narration_length(
+    narration_text: str,
+    narration_max_cjk_chars: int,
+    target_duration_seconds: int,
+    issues: list[ValidationIssue],
+) -> None:
+    cjk_count = len(re.findall(r"[\u4e00-\u9fff]", narration_text or ""))
+    if cjk_count > narration_max_cjk_chars:
+        issues.append(
+            ValidationIssue(
+                code="narration_too_long_for_target_duration",
+                field="narration",
+                severity="warning",
+                message=(
+                    f"Narration has {cjk_count} Chinese characters, exceeding "
+                    f"the safe limit {narration_max_cjk_chars} for "
+                    f"{target_duration_seconds}s target duration."
+                ),
+            )
+        )
 
 
 def _detect_role(file_name: str) -> str:

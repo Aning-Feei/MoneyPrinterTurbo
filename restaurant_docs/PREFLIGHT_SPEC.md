@@ -67,6 +67,16 @@ preflight_report.json
 - `render_params`
 - `issues`
 
+`timing` 当前包含：
+
+- `target_duration_seconds`
+- `estimated_narration_seconds`
+- `recommended_clip_duration`
+- `total_image_duration`
+- `narration_safe_seconds`
+- `narration_max_cjk_chars`
+- `will_loop`
+
 ## CLI 退出码
 
 - `0`：预检通过，报告 `ok` 为 `true`。
@@ -104,7 +114,7 @@ preflight completed with validation errors: 预检已完成，但存在校验错
 
 ## 目标时长和动态 clip duration 规则
 
-后续预检器应以 `target_duration_seconds` 作为主要时长目标，并根据图片数量动态推荐每张图片展示时长：
+预检器以 `target_duration_seconds` 作为主要时长目标，并根据图片数量动态推荐每张图片展示时长：
 
 ```text
 raw_clip_duration = ceil(target_duration_seconds / image_count)
@@ -166,6 +176,10 @@ narration_max_cjk_chars = floor(narration_safe_seconds * 4.0)
 
 WebUI 实际 `video_script` 不应明显超过该字符上限。preflight/checklist 只能约束输入文案，无法保证用户在 WebUI 中手动粘贴的新文案仍符合约束。
 
+如果当前输入旁白的中文字符数超过上限，预检器输出 warning：
+
+- `narration_too_long_for_target_duration`
+
 ## WebUI 推荐参数
 
 当前推荐：
@@ -191,6 +205,14 @@ WebUI 实际 `video_script` 不应明显超过该字符上限。preflight/checkl
 ```text
 total_image_duration < max(target_duration_seconds, estimated_narration_seconds)
 ```
+
+如果图片覆盖时长短于目标时长，输出 warning：
+
+- `image_duration_shorter_than_target_duration`
+
+如果图片覆盖时长短于估算旁白时长，输出 warning：
+
+- `image_duration_shorter_than_narration`
 
 ## 负向测试记录
 
