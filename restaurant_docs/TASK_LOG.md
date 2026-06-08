@@ -416,3 +416,24 @@
   - CLI 可以更明确地区分“程序执行失败”和“预检完成但 ok=false”
   - 例如在控制台输出 preflight completed with validation errors
   - 该改进不阻塞当前阶段
+
+## 第 2 阶段 - 预检器 CLI 提示改进
+
+- 本次目标：
+  - 当预检完成但 ok=false 时，明确提示“预检已完成，但存在校验错误”
+  - 避免用户把负向测试的退出码 1 误判为 Python 程序崩溃
+- 修改范围：
+  - restaurant_engine/preflight_project.py
+  - restaurant_docs/PREFLIGHT_SPEC.md
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- 行为调整：
+  - ok=true 时返回退出码 0，并打印 preflight completed successfully
+  - ok=false 时返回退出码 1，并打印 preflight completed with validation errors: 预检已完成，但存在校验错误
+  - 程序异常时返回退出码 2，并打印 preflight failed: ...
+- 未修改内容：
+  - 未修改 shot 排序逻辑
+  - 未修改旁白估算逻辑
+  - 未修改 clip duration 推荐逻辑
+  - 未修改 will_loop 判断逻辑
+  - 未修改 MoneyPrinterTurbo 原有业务代码

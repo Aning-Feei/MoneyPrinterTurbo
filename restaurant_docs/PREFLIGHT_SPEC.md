@@ -57,6 +57,18 @@ preflight_report.json
 - `render_params`
 - `issues`
 
+## CLI 退出码
+
+- `0`：预检通过，报告 `ok` 为 `true`。
+- `1`：预检已完成并写出报告，但存在 validation errors，报告 `ok` 为 `false`。这不是 Python 程序崩溃。
+- 程序异常：例如无法写入报告等执行失败，会打印具体错误原因，例如 `preflight failed: ...`。
+
+当退出码为 `1` 时，CLI 会明确打印：
+
+```text
+preflight completed with validation errors: 预检已完成，但存在校验错误
+```
+
 ## 镜头顺序规则
 
 当前按文件名识别角色，并推荐稳定顺序：
@@ -128,7 +140,7 @@ preflight_report.json
 
 结论：预检器能把 `video_clip_duration` 提高到上限 8 秒；当仍不足覆盖旁白时，会输出 `will_loop: true` 和 warning。命令退出码为 1 是因为报告 `ok: false`，属于负向测试预期，不是程序崩溃。
 
-后续可改进 CLI 输出，让它更明确地区分“程序执行失败”和“预检完成但 ok=false”，例如输出 `preflight completed with validation errors`。
+已改进 CLI 输出：当预检完成但 `ok=false` 时，会明确打印 `preflight completed with validation errors: 预检已完成，但存在校验错误`，避免误判为程序崩溃。
 
 ## 当前限制
 

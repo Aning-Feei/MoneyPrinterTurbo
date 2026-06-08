@@ -17,12 +17,23 @@ def main() -> int:
     parser.add_argument("project", help="Path to project.json")
     args = parser.parse_args()
 
-    project_path = Path(args.project).expanduser().resolve()
-    report = run_preflight(project_path)
-    output_path = project_path.parent / "preflight_report.json"
-    write_preflight_report(report, output_path)
-    _print_summary(preflight_report_to_dict(report), output_path)
-    return 0 if report.ok else 1
+    try:
+        project_path = Path(args.project).expanduser().resolve()
+        report = run_preflight(project_path)
+        output_path = project_path.parent / "preflight_report.json"
+        write_preflight_report(report, output_path)
+        report_data = preflight_report_to_dict(report)
+        _print_summary(report_data, output_path)
+    except Exception as exc:
+        print(f"preflight failed: {exc}")
+        return 2
+
+    if report.ok:
+        print("preflight completed successfully")
+        return 0
+
+    print("preflight completed with validation errors: 预检已完成，但存在校验错误")
+    return 1
 
 
 def _print_summary(report: dict, output_path: Path) -> None:
