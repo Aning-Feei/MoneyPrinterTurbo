@@ -6,7 +6,7 @@
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
 - 当前阶段：第 1 阶段：MoneyPrinterTurbo 基础生成链路验证（进行中）
-- 当前下一步：第三次无代码复测 6 张完整图片、Sequential 拼接、每段 6 秒
+- 当前下一步：固化餐厅样片输入规范，整理 restaurant_engine 和文档结构
 
 ## 当前样本项目
 
@@ -34,6 +34,7 @@
 16. 完成人工播放检查 final-1.mp4
 17. 完成图片顺序不合理的只读根因定位
 18. 完成第二次 WebUI Sequential 复测和循环原因定位
+19. 完成第三次 WebUI 参数基线复测
 
 ## 当前阻塞点
 
@@ -41,7 +42,7 @@
 
 ## 下一步目标
 
-第三次无代码复测：继续使用完整 6 张图片和 Sequential/顺序拼接，保持当前长旁白，将 video_clip_duration 从 3 秒提高到 6 秒，验证是否不再循环图片；暂不修改业务代码。
+固化餐厅样片输入规范，整理 restaurant_engine 和文档结构，规划餐厅专用镜头顺序/参数预检器，并决定如何处理 .gitignore 和未跟踪文档/代码。
 
 ## 第 0 阶段 0.9 状态
 
@@ -217,3 +218,57 @@
   - 目标：6 张图 * 6 秒 = 36 秒，覆盖约 30.91 秒音频，验证是否不再循环图片
   - 暂不修改业务代码
   - 后续餐厅专用引擎应在生成前计算 图片数 * 每张时长 >= 旁白时长，并给出参数建议或自动调整
+
+## 第 1 阶段第三次 WebUI 参数基线复测
+
+- task_id：
+  - 2dceacbf-bf55-494a-8004-a3f0eacfb067
+- 复测设置：
+  - 上传完整 6 张图片：是
+  - 拼接模式：Sequential/顺序
+  - 每张图片时长：6 秒
+  - 使用同一段较长旁白：是
+- 复测结果：
+  - 生成 final-1.mp4：是
+  - 视频正常播放：是
+  - 图片顺序正确：是
+  - 6 张图片都出现：是
+  - 图片没有重复播放：是
+  - 语音正常：是
+  - 字幕正常：是
+  - 字幕和语音同步：是
+  - 节奏可接受：是
+  - 终端无新错误
+  - 当前最大问题：无
+- 产物信息：
+  - storage/tasks/2dceacbf-bf55-494a-8004-a3f0eacfb067/final-1.mp4，约 9.3M，时长 00:00:36.00，分辨率 1080x1920
+  - storage/tasks/2dceacbf-bf55-494a-8004-a3f0eacfb067/audio.mp3，约 181K，时长 00:00:30.91
+  - storage/tasks/2dceacbf-bf55-494a-8004-a3f0eacfb067/script.json，约 3.4K
+  - storage/tasks/2dceacbf-bf55-494a-8004-a3f0eacfb067/subtitle.srt，约 807B
+  - storage/tasks/2dceacbf-bf55-494a-8004-a3f0eacfb067/combined-1.mp4，约 8.7M
+- script.json 关键信息：
+  - video_concat_mode 为 sequential
+  - video_clip_duration 为 6
+  - video_materials 数量为 6，顺序完整且正确：
+    1. 01_intro.jpg
+    2. 02_interior.jpg
+    3. 03_dish_1.jpg
+    4. 04_dish_2.jpg
+    5. 05_dining.jpeg
+    6. 06_extra.jpg
+- 日志定位结论：
+  - 音频时长：30.91 秒
+  - 每段图片视频最大时长：6 秒
+  - 6 张图总可用时长约：36 秒
+  - 未出现 looping clips to match audio length 提示
+  - 日志显示：concatenating 6 clips with ffmpeg
+- 当前结论：
+  - 第三次 WebUI 复测通过
+  - 第 1 阶段 WebUI 基础餐厅图文视频生成链路通过
+  - 当前推荐 WebUI 参数基线：完整素材、Sequential/顺序拼接、video_clip_duration = 6，并确保 图片数 * 每张图片时长 >= 旁白时长
+  - 暂不需要修改 MoneyPrinterTurbo 业务代码
+- 下一阶段建议：
+  - 固化餐厅样片输入规范
+  - 整理 restaurant_engine 和文档结构
+  - 规划餐厅专用镜头顺序/参数预检器
+  - 决定如何处理 .gitignore 和未跟踪文档/代码
