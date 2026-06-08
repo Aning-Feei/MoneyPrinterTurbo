@@ -447,10 +447,44 @@ def get_restaurant_image_range(target_duration_seconds: int) -> tuple[int, int]:
 def recommend_restaurant_clip_duration(
     target_duration_seconds: int, image_count: int
 ) -> int | None:
-    if image_count <= 0:
+    durations = compute_restaurant_image_clip_durations(
+        target_duration_seconds, image_count
+    )
+    if not durations:
         return None
-    raw_clip_duration = math.ceil(target_duration_seconds / image_count)
-    return min(max(raw_clip_duration, 3), 6)
+    return max(durations)
+
+
+def compute_restaurant_image_clip_durations(
+    target_duration_seconds: int, image_count: int
+) -> list[int]:
+    if image_count <= 0:
+        return []
+
+    target_duration = max(1, int(target_duration_seconds or 30))
+    image_count = max(1, int(image_count))
+
+    if target_duration % image_count == 0:
+        return [target_duration // image_count] * image_count
+
+    base_duration = target_duration // image_count
+    longer_count = target_duration - base_duration * image_count
+    shorter_count = image_count - longer_count
+    if base_duration < 1 or shorter_count < 1:
+        return [base_duration + 1] * longer_count + [base_duration] * shorter_count
+
+    shorter_positions = {
+        math.ceil(index * image_count / (shorter_count + 1))
+        for index in range(1, shorter_count + 1)
+    }
+    durations = []
+    for position in range(1, image_count + 1):
+        if position in shorter_positions:
+            durations.append(base_duration)
+        else:
+            durations.append(base_duration + 1)
+
+    return durations
 
 
 def lock_restaurant_video_params(params: VideoParams, image_count: int | None = None):
@@ -464,13 +498,18 @@ def lock_restaurant_video_params(params: VideoParams, image_count: int | None = 
         "video_aspect",
         params.video_aspect or VideoAspect.portrait.value,
     )
-    recommended_clip_duration = None
+    clip_durations = []
     if image_count:
-        recommended_clip_duration = recommend_restaurant_clip_duration(
+        clip_durations = compute_restaurant_image_clip_durations(
             params.target_duration_seconds, image_count
         )
-    set_params_runtime_field(params, "video_clip_duration", recommended_clip_duration or 5)
-    return recommended_clip_duration
+    if clip_durations:
+        set_params_runtime_field(params, "video_clip_durations", clip_durations)
+        set_params_runtime_field(params, "video_clip_duration", max(clip_durations))
+    else:
+        set_params_runtime_field(params, "video_clip_durations", None)
+        set_params_runtime_field(params, "video_clip_duration", 5)
+    return clip_durations
 
 
 def count_cjk_chars(text: str) -> int:
@@ -944,13 +983,14 @@ def show_restaurant_mode_guidance(
     params: VideoParams,
     uploaded_files,
     persisted_materials,
-) -> dict[str, int | None]:
+) -> dict[str, object]:
     target_duration = params.target_duration_seconds
     min_images, max_images = get_restaurant_image_range(target_duration)
     image_count = get_restaurant_image_count(uploaded_files, persisted_materials)
-    recommended_clip_duration = recommend_restaurant_clip_duration(
+    clip_durations = compute_restaurant_image_clip_durations(
         target_duration, image_count
     )
+    recommended_clip_duration = max(clip_durations) if clip_durations else None
     min_chars, max_chars = get_restaurant_script_char_range(target_duration)
     cjk_count = count_cjk_chars(params.video_script)
 
@@ -960,7 +1000,7 @@ def show_restaurant_mode_guidance(
     st.write(f"当前本地图片数量：{image_count} 张")
 
     if image_count == 0:
-        st.info("上传图片后自动计算视频片段最大时长。")
+        st.info("上传图片后自动计算每张图片展示时长。")
     elif image_count < min_images:
         st.error(
             f"餐厅视频模式需要至少 {min_images} 张图片；当前只有 {image_count} 张，生成会被阻止。"
@@ -970,16 +1010,16 @@ def show_restaurant_mode_guidance(
             f"当前图片数量 {image_count} 张，高于目标 {target_duration} 秒建议上限 {max_images} 张；可能节奏过快或视频超过目标时长。"
         )
 
-    if recommended_clip_duration is not None:
-        total_image_duration = image_count * recommended_clip_duration
-        set_params_runtime_field(params, "video_clip_duration", recommended_clip_duration)
+    if clip_durations:
+        total_image_duration = sum(clip_durations)
+        set_params_runtime_field(params, "video_clip_durations", clip_durations)
+        set_params_runtime_field(params, "video_clip_duration", max(clip_durations))
         st.write(
-            f"推荐“视频片段最大时长(秒)”设置为 {recommended_clip_duration} 秒"
+            "每张图片展示时长："
+            f"{', '.join(str(duration) for duration in clip_durations)} 秒"
         )
-        st.write(
-            f"当前上传图片数 {image_count} 张，预计图片总覆盖时长 {total_image_duration} 秒"
-        )
-        st.caption("餐厅模式会自动使用该时长，不需要手动选择。")
+        st.write(f"预计图片总覆盖时长：{total_image_duration} 秒")
+        st.caption("餐厅模式会根据目标总时长和图片数量自动分配整数秒片段。")
     else:
         total_image_duration = None
 
@@ -995,6 +1035,7 @@ def show_restaurant_mode_guidance(
         "min_images": min_images,
         "max_images": max_images,
         "recommended_clip_duration": recommended_clip_duration,
+        "clip_durations": clip_durations,
         "total_image_duration": total_image_duration,
         "min_chars": min_chars,
         "max_chars": max_chars,
@@ -1644,16 +1685,6 @@ with middle_panel:
                 uploaded_files, st.session_state["local_video_materials"]
             )
             lock_restaurant_video_params(params, image_count)
-            if image_count:
-                st.write(
-                    f"视频片段最大时长：{params.video_clip_duration} 秒（根据目标时长和图片数量自动计算）"
-                )
-                st.write(
-                    f"图片总覆盖时长：{image_count} 张 × {params.video_clip_duration} 秒 = "
-                    f"{image_count * params.video_clip_duration} 秒"
-                )
-            else:
-                st.write("视频片段最大时长：上传图片后自动计算。")
             restaurant_ui_checks = show_restaurant_mode_guidance(
                 params=params,
                 uploaded_files=uploaded_files,

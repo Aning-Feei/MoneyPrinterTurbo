@@ -77,6 +77,7 @@ class VideoParams(BaseModel):
     video_concat_mode: Optional[VideoConcatMode] = VideoConcatMode.random.value
     video_transition_mode: Optional[VideoTransitionMode] = None
     video_clip_duration: Optional[int] = 5
+    video_clip_durations: Optional[List[int]] = None
     video_count: Optional[int] = 1
     target_duration_seconds: int = 30
     restaurant_mode: bool = True
