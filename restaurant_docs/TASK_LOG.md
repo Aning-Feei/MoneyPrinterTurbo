@@ -673,3 +673,32 @@
   - 不修改 MoneyPrinterTurbo 原业务代码
   - 不修改 validator.py
   - 不修改 webui_checklist.py
+
+## Step 2-3 - checklist 目标时长与文案上限展示
+
+- 本次目标：
+  - 只更新 WebUI checklist 生成器
+  - 展示 preflight 新增 timing 字段
+  - 强化 WebUI 最终文案一致性提示
+  - 暂不修改 validator/preflight/models 逻辑
+- 允许修改：
+  - restaurant_engine/webui_checklist.py
+  - restaurant_docs/WEBUI_CHECKLIST_SPEC.md
+  - restaurant_docs/PROJECT_STATUS.md
+  - restaurant_docs/TASK_LOG.md
+- checklist 新增展示：
+  - 目标视频时长
+  - 当前图片数量
+  - 推荐每张图片时长
+  - 图片总覆盖时长
+  - 旁白安全时长
+  - 旁白最大中文字符数
+  - WebUI 最终 `video_script` 不应明显超过上限
+- 向后兼容：
+  - 旧 preflight_report 缺少新增字段时显示“未提供”
+  - 图片总覆盖时长可回退为图片数量 * 推荐时长
+- 保持不变：
+  - 不修改 MoneyPrinterTurbo 原业务代码
+  - 不修改 validator.py
+  - 不修改 preflight.py
+  - 不修改 models.py

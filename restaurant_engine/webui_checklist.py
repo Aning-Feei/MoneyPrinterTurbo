@@ -27,18 +27,25 @@ def build_webui_checklist(report: dict[str, Any]) -> str:
     clip_duration = render_params.get(
         "video_clip_duration", timing.get("recommended_clip_duration", "unknown")
     )
+    image_count = len(shots)
+    target_duration = timing.get("target_duration_seconds")
+    total_image_duration = timing.get("total_image_duration")
+    if total_image_duration is None:
+        total_image_duration = _multiply_if_numbers(image_count, clip_duration)
+    narration_safe_seconds = timing.get("narration_safe_seconds")
+    narration_max_cjk_chars = timing.get("narration_max_cjk_chars")
     video_source = render_params.get("video_source", "local")
     concat_mode = render_params.get("video_concat_mode", "sequential")
     will_loop = timing.get("will_loop", "unknown")
-    total_duration = shot_plan.get("total_image_duration", "unknown")
     video_aspect = _recommended_aspect(report, render_params)
     aspect_label = _format_video_aspect(video_aspect)
 
-    start_recommendation = "可以进入 WebUI 生成" if ok else "不建议开始生成"
+    can_start = ok and will_loop is not True
+    start_recommendation = "可以进入 WebUI 生成" if can_start else "不建议开始生成"
     status_note = (
         "预检通过。请按下方顺序和参数进入 WebUI。"
-        if ok
-        else "预检未通过。请先修复图片数量、角色缺失或循环风险。"
+        if can_start
+        else "预检未通过或存在循环风险。请先修复图片数量、角色缺失或时长覆盖问题。"
     )
 
     lines = [
@@ -50,6 +57,15 @@ def build_webui_checklist(report: dict[str, Any]) -> str:
         f"- 是否通过预检: {_format_bool(ok)}",
         f"- 是否建议开始生成: {start_recommendation}",
         f"- 状态说明: {status_note}",
+        f"- 目标视频时长: {_format_seconds(target_duration)}",
+        f"- 图片数量: {image_count} 张",
+        f"- 推荐每张图片时长: {_format_seconds(clip_duration)}",
+        (
+            "- 图片总覆盖时长: "
+            f"{_format_total_image_duration(image_count, clip_duration, total_image_duration)}"
+        ),
+        f"- 旁白安全时长: {_format_seconds(narration_safe_seconds)}",
+        f"- 旁白最大中文字符数: {_format_chars(narration_max_cjk_chars)}",
         "",
         "## 2. WebUI 页面操作步骤",
         "",
@@ -117,15 +133,29 @@ def build_webui_checklist(report: dict[str, Any]) -> str:
             "## 6. 旁白与时长",
             "",
             f"- 估算旁白时长: {estimated_seconds} 秒",
-            f"- 图片总时长: {total_duration} 秒",
+            f"- 目标视频时长: {_format_seconds(target_duration)}",
+            f"- 图片数量: {image_count} 张",
+            f"- 推荐每张图片时长: {_format_seconds(clip_duration)}",
+            (
+                "- 图片总覆盖时长: "
+                f"{_format_total_image_duration(image_count, clip_duration, total_image_duration)}"
+            ),
+            f"- 旁白安全时长: {_format_seconds(narration_safe_seconds)}",
+            f"- 旁白最大中文字符数: {_format_chars(narration_max_cjk_chars)}",
             f"- 是否存在循环风险: {_format_bool(will_loop)}",
+            "",
+            "WebUI 中最终 `video_script` 不应明显超过上方旁白最大中文字符数。",
+            (
+                "如果你在 WebUI 中改写、扩写或使用 AI 生成了更长文案，"
+                "请把最终文案写回 project.json 后重新运行 preflight 和 checklist。"
+            ),
             "",
             "## 7. 风险提示",
             "",
         ]
     )
 
-    if ok and will_loop is not True:
+    if can_start:
         lines.extend(
             [
                 "- 可以进入 WebUI 生成。",
@@ -176,6 +206,7 @@ def build_webui_checklist(report: dict[str, Any]) -> str:
             "- [ ] 字幕已启用",
             "- [ ] 音频/TTS 已确认",
             "- [ ] 旁白已确认",
+            "- [ ] WebUI 最终 video_script 没有明显超过旁白最大中文字符数",
             "- [ ] 点击生成视频前再次确认无循环风险",
         ]
     )
@@ -265,6 +296,41 @@ def _format_video_aspect(value: Any) -> str:
     if str(value) == "16:9":
         return "横屏 16:9（西瓜视频）"
     return f"{value} 或项目指定比例"
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _multiply_if_numbers(left: Any, right: Any) -> int | float | None:
+    if _is_number(left) and _is_number(right):
+        return left * right
+    return None
+
+
+def _format_seconds(value: Any) -> str:
+    if _is_number(value):
+        return f"{value:g} 秒"
+    return "未提供"
+
+
+def _format_chars(value: Any) -> str:
+    if _is_number(value):
+        return f"{value:g} 字"
+    return "未提供"
+
+
+def _format_total_image_duration(
+    image_count: int, clip_duration: Any, total_image_duration: Any
+) -> str:
+    if _is_number(clip_duration) and _is_number(total_image_duration):
+        return (
+            f"{image_count} 张 * {clip_duration:g} 秒 = "
+            f"{total_image_duration:g} 秒"
+        )
+    if _is_number(total_image_duration):
+        return f"{total_image_duration:g} 秒"
+    return "未提供"
 
 
 if __name__ == "__main__":

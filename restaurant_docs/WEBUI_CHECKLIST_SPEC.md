@@ -35,13 +35,13 @@ webui_checklist.md
 - 不要写死的字段提示
 - 生成前确认清单
 
-后续 checklist 还应展示目标时长和动态时长约束：
+checklist 还应展示目标时长和动态时长约束：
 
 - 目标视频时长
 - 当前图片数量
-- 合理图片数量范围
 - 推荐 `video_clip_duration`
 - 图片总覆盖时长
+- 旁白安全时长
 - 旁白最大中文字符数
 - 文案一致性提醒
 - WebUI 中实际 `video_script` 不得明显超过上限
@@ -55,6 +55,7 @@ webui_checklist.md
 - 使用报告中的 `video_clip_duration`
 - 明确提示不要使用 Random
 - 明确提示打开 WebUI、选择 `Local file / 本地文件`、按顺序上传图片、点击 `生成视频`
+- 如果 `will_loop=true`，即使 `ok=true` 也应明确写出不建议开始生成
 
 ## ok=false 行为
 
@@ -124,6 +125,8 @@ narration_max_cjk_chars = floor(narration_safe_seconds * 4.0)
 | 60 秒 | 57 秒 | 约 228 字 |
 
 checklist 应提醒人工确认 WebUI 实际 `video_script` 不明显超过该上限。
+
+如果 `preflight_report.json` 是旧版本且缺少 `target_duration_seconds`、`total_image_duration`、`narration_safe_seconds` 或 `narration_max_cjk_chars`，checklist 不应崩溃，应显示“未提供”或使用图片数量 * 推荐时长回退计算。
 
 ## 当前限制
 

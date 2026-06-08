@@ -5,8 +5,8 @@
 - 项目名称：餐饮 AI 宣传视频生成系统
 - 当前仓库：/Users/feei/AI/MoneyPrinterTurbo
 - 当前分支：feature/restaurant-video-prototype
-- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（preflight 目标时长计算实现中）
-- 当前下一步：让 preflight 使用 target_duration_seconds 动态计算推荐 clip duration、图片总覆盖时长和旁白字数上限；暂不修改 checklist，不改 MoneyPrinterTurbo 原业务代码。
+- 当前阶段：第 2 阶段：餐厅专用镜头计划 / 参数预检器（checklist 目标时长展示实现中）
+- 当前下一步：让 WebUI checklist 展示 preflight 新增的目标时长、动态 clip duration、图片总覆盖时长和旁白字数上限；不改 MoneyPrinterTurbo 原业务代码。
 
 ## 当前样本项目
 
@@ -531,4 +531,23 @@ project.json
 - 当前边界：
   - 不修改 validator.py
   - 不修改 webui_checklist.py
+  - 不修改 MoneyPrinterTurbo 原业务代码
+
+## Step 2-3 checklist 目标时长展示
+
+- 当前目标：
+  - checklist 读取 `timing.target_duration_seconds`
+  - 展示当前图片数量
+  - 展示推荐 `video_clip_duration`
+  - 展示图片总覆盖时长
+  - 展示旁白安全时长和最大中文字符数
+  - 强化 WebUI 最终 `video_script` 文案一致性提示
+- 向后兼容：
+  - 旧 report 缺少新增字段时不崩溃
+  - 缺少字段显示“未提供”
+  - 图片总覆盖时长可回退为图片数量 * 推荐时长
+- 当前边界：
+  - 不修改 validator.py
+  - 不修改 preflight.py
+  - 不修改 models.py
   - 不修改 MoneyPrinterTurbo 原业务代码
