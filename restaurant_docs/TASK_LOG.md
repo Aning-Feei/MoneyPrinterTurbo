@@ -172,3 +172,46 @@
 - 下一步建议：
   - 只读分析图片输入顺序、脚本片段顺序、local_videos 生成顺序、最终合成顺序之间的关系
   - 暂不修改业务代码
+
+## 第 1 阶段 - 图片顺序不合理只读根因定位
+
+- 本次目标：
+  - 只读定位 final-1.mp4 中图片顺序不合理的原因
+  - 不修改业务代码，不实施修复
+- 目标 task：
+  - 6b4c0e38-8df8-4991-87cd-ad495ab090df
+- 最终视频：
+  - storage/tasks/6b4c0e38-8df8-4991-87cd-ad495ab090df/final-1.mp4
+- script.json 中 video_materials 顺序：
+  1. 01_intro.jpg
+  2. 03_dish_1.jpg
+  3. 04_dish_2.jpg
+- script.json 中 video_concat_mode：
+  - random
+- WebUI 日志中的预处理顺序：
+  1. 01_intro
+  2. 03_dish_1
+  3. 04_dish_2
+- 最终合成日志显示 combined-1.mp4 的处理顺序开头：
+  1. 03_dish_1
+  2. 01_intro
+- 04_dish_2 未进入最终合成的可能原因：
+  - 旁白音频约 4.87 秒
+  - 每段图片视频约 3 秒
+  - 最终只覆盖约 2 个 clip
+- 代码只读定位：
+  - app/services/video.py 中 _prioritize_unique_source_clips(...) 在 VideoConcatMode.random 下会 random.shuffle(primary_items)
+- 当前最可能原因：
+  - 最终合成阶段的 random 模式打乱了素材顺序
+- 次要原因：
+  - 本次只实际使用了 3 张图片，不是完整 6 张样本
+  - 旁白过短，无法覆盖所有图片
+  - script.json 没有 scene-to-image mapping
+- 当前决定：
+  - 暂不实施代码修改
+- 下一步建议：
+  - 无代码复测：上传完整 6 张样本图片
+  - WebUI 拼接模式选择 Sequential/顺序拼接，不使用 random
+  - 使用更长旁白，至少覆盖 6 张图 * 3 秒，约 18 秒以上
+  - 如果无代码复测通过，再决定是否需要代码层强制顺序模式
+  - 如果后续做餐厅专用引擎，应在 restaurant_engine 层生成明确镜头顺序计划，不依赖 WebUI random 合成
