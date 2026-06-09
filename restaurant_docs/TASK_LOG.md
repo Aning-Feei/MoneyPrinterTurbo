@@ -1880,3 +1880,33 @@
   - 未修改 `app/services/llm.py`。
   - 未修改视频生成核心。
   - 本轮验证不主动调用 DeepSeek 或任何外部 API。
+
+## DeepSeek planner 真实调用测试记录
+
+- 输入 `project.json`：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json`
+- 执行命令：
+  - `python3 -m restaurant_engine.pipeline_project --project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json --planner deepseek --allow-external-api`
+- 输出文件：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json`
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json`
+- 测试结果：
+  - `ok=true`
+  - `planner=deepseek`
+  - `external_api_allowed=true`
+  - `external_api_called=true`
+  - `validation_passed=true`
+  - `image_count=8`
+  - `scene_count=8`
+  - scene 顺序正确。
+  - storyboard 包含真实中文餐厅宣传旁白摘要。
+- 安全检查：
+  - 未发现 `sk-` / `api_key` / `Authorization` / `Bearer` 写入 report 或 storyboard。
+  - 仓库内未误生成 report/storyboard。
+  - 未生成视频。
+  - 未修改代码。
+- 非阻塞问题：
+  - DeepSeek 返回 `total duration field` 为 `24`，8 个 scene 每个 3 秒。
+  - 后续需要增强 `target_duration_seconds` 时长约束，或由后续时长分配模块覆盖。
+- 结论：
+  - DeepSeek planner 真实调用已打通。

@@ -48,6 +48,8 @@
 - `mock`：默认模式，只生成本地 mock storyboard，不调用外部 API。
 - `deepseek`：DeepSeek storyboard planner，需要显式允许外部 API。
 
+默认 planner 仍为 `mock`。普通 pipeline 验证不应触发外部 API。
+
 默认命令等价于 `--planner mock`：
 
 ```bash
@@ -63,6 +65,17 @@ python3 -m restaurant_engine.pipeline_project \
   --planner deepseek \
   --allow-external-api
 ```
+
+当前 DeepSeek 真实调用已通过首次 smoke test：
+
+- DeepSeek planner 已能输出真实 `storyboard.json`。
+- `pipeline_report.ok=true`。
+- `planner=deepseek`。
+- `external_api_allowed=true`。
+- `external_api_called=true`。
+- scene 数量与图片数量一致。
+- scene 顺序与图片顺序一致。
+- 未发现 API Key、请求头或 token 写入 report/storyboard。
 
 如果只传 `--planner deepseek` 但没有 `--allow-external-api`：
 
@@ -147,3 +160,6 @@ CLI 输出：
 - 接入真实文案生成，但仍保持可测试的本地报告输出。
 - 接入 TTS 前先冻结输入/输出契约。
 - 接入视频生成前保留 dry-run / mock 模式。
+- 增强 `target_duration_seconds` 时长约束。
+- 对齐 scene duration 与目标总时长。
+- 增加更严格的 storyboard schema 校验。

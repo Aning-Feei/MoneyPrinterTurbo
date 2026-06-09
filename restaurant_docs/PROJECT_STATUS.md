@@ -1382,3 +1382,34 @@ project.json
   - 未修改 WebUI。
   - 未修改 `app/services/llm.py`。
   - 未修改视频生成核心。
+
+## 第 2 阶段验证：DeepSeek planner 真实调用
+
+- DeepSeek planner 真实调用已通过首次验证。
+- 本次仅执行用户授权的显式命令：
+  - `--planner deepseek`
+  - `--allow-external-api`
+- DeepSeek planner 已能生成真实 `storyboard.json`。
+- `pipeline_report.json` 关键结果：
+  - `ok=true`
+  - `planner=deepseek`
+  - `external_api_allowed=true`
+  - `external_api_called=true`
+  - `validation_passed=true`
+- 样本图片数量与 scene 数量一致：
+  - `image_count=8`
+  - `scene_count=8`
+- scene 顺序与图片文件名顺序一致。
+- storyboard 包含真实中文餐厅宣传旁白摘要，例如“正宗川味，太上头！”。
+- 安全检查：
+  - 未发现 API Key 写入 `pipeline_report.json` 或 `storyboard.json`。
+  - 未发现 `sk-`、`api_key`、`Authorization`、`Bearer` 写入输出文件。
+  - 仓库内未误生成 `pipeline_report.json` 或 `storyboard.json`。
+- 当前边界：
+  - 未生成视频。
+  - 未修改代码。
+  - 未修改 WebUI。
+  - 未修改视频生成核心。
+- 当前非阻塞问题：
+  - DeepSeek 返回的 `total duration field` 为 `24`，8 个 scene 每个 3 秒。
+  - 后续进入真实视频链路前，需要增强 `target_duration_seconds` 时长约束，或由后续时长分配模块覆盖。
