@@ -301,3 +301,27 @@ DeepSeek planner prompt 约束：
 - 不返回 mock、placeholder、TODO、待填写或 Markdown。
 - scene 数量和图片顺序必须保持输入顺序。
 - duration 由本地 `compute_scene_durations` 归一化，DeepSeek 返回值不作为最终时长来源。
+
+## DeepSeek Quality Contract 真实复测
+
+- DeepSeek storyboard quality contract 真实复测已通过。
+- 当前 DeepSeek planner 输出在真实 API 调用后可通过：
+  - structure contract
+  - quality contract
+  - duration alignment
+  - image order check
+- quality warning 不阻断 pipeline。
+- quality error 才阻断 pipeline。
+- 当前验证样例：
+  - `target_duration_seconds=30`
+  - `image_count=8`
+  - `scene_durations=[4,4,3,4,4,3,4,4]`
+  - `total_duration_seconds=30`
+  - `quality_errors=0`
+  - `quality_warnings=3`
+- 当前仍不生成视频、不调用 TTS、不调用图生视频。
+- 后续可进入：
+  - TTS contract 设计
+  - storyboard-to-narration 导出
+  - 图生视频适配层设计
+  - 新项目 `restaurant-video-ai` 架构设计

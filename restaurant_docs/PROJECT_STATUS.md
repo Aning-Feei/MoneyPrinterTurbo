@@ -1560,3 +1560,33 @@ project.json
   - 本轮不调用任何外部 API。
   - 本轮不生成视频。
   - 未修改 WebUI、`app/` 或 `config.toml`。
+
+## 第 2 阶段验证：DeepSeek Storyboard Quality Contract 真实复测通过
+
+- 第 2 阶段 DeepSeek storyboard quality contract 真实复测已通过。
+- 真实 DeepSeek storyboard 同时通过：
+  - structure contract
+  - quality contract
+  - duration alignment
+  - image order check
+- 复测结果摘要：
+  - `pipeline_report.ok=true`
+  - `planner=deepseek`
+  - `external_api_called=true`
+  - `storyboard_contract_passed=true`
+  - `storyboard_quality_passed=true`
+  - `quality_errors=0`
+  - `quality_warnings=3`
+  - `target_duration_seconds=30`
+  - `scene_durations=[4,4,3,4,4,3,4,4]`
+  - `storyboard.total_duration_seconds=30`
+  - `scene_count=image_count=8`
+  - scene 顺序与图片顺序一致。
+  - `narration` / `visual_instruction` / `selling_point` / `transition_hint` 均存在。
+  - 未发现 mock 文案。
+- 安全与边界：
+  - 未发现 API Key 写入 `pipeline_report.json` 或 `storyboard.json`。
+  - 未生成视频。
+  - 未修改代码。
+  - 当前阻塞问题：无。
+  - 当前非阻塞问题：系统 `python3` 缺少项目依赖，实际使用 `.venv` Python 执行。

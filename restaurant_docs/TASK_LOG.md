@@ -2079,3 +2079,36 @@
   - 本轮不调用任何外部 API。
   - 本轮不生成视频。
   - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。
+
+## DeepSeek storyboard quality contract 真实复测记录
+
+- 输入 project.json：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json`
+- 执行命令：
+  - `.venv/bin/python -m restaurant_engine.pipeline_project --project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json --planner deepseek --allow-external-api`
+- 输出文件：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json`
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json`
+- 测试结果：
+  - `ok=true`
+  - `planner=deepseek`
+  - `external_api_allowed=true`
+  - `external_api_called=true`
+  - `storyboard_contract_passed=true`
+  - `storyboard_quality_passed=true`
+  - `quality_errors=0`
+  - `quality_warnings=3`
+  - `target_duration_seconds=30`
+  - `scene_durations=[4,4,3,4,4,3,4,4]`
+  - `duration_sum=30`
+  - `image_count=8`
+  - `scene_count=8`
+  - scene 顺序正确。
+  - `narration` / `visual_instruction` / `selling_point` / `transition_hint` 均存在。
+- 安全检查：
+  - 未发现 `sk-` / `api_key` / `Authorization` / `Bearer` 写入 report 或 storyboard。
+  - 仓库内未误生成 report/storyboard。
+  - 未生成视频。
+  - 未修改代码。
+- 结论：
+  - DeepSeek storyboard quality contract 真实复测通过。
