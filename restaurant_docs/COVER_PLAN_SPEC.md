@@ -1,10 +1,10 @@
 # 第 4 阶段封面方案 Contract
 
-本文件记录 TwinkleBite AI 餐饮宣传视频第 4 阶段封面生成模块的第一版 contract。
+本文件记录 TwinkleBite AI 餐饮宣传视频第 4 阶段封面生成模块的第一版 `cover_plan.json` contract。
 
-当前阶段只生成 `cover_plan.json`，用于描述封面应如何选择标题、图片、文案和布局。当前不渲染真实封面图片，不输出 PNG / JPG / JPEG / WebP 文件。
+第 4 阶段第 1 个任务只生成 `cover_plan.json`，用于描述封面应如何选择标题、图片、文案和布局。
 
-第 4 阶段第 2 个任务开始后，真实本地渲染结果由 `cover_render_report.json` 记录；`cover_plan.json` 仍作为原始封面方案 contract 保持兼容。
+第 4 阶段第 2 个任务已新增本地封面渲染结果，由 `cover_render_report.json` 和 `pipeline_report.json` 记录；`cover_plan.json` 仍作为原始封面方案 contract 保持兼容。
 
 ## 当前范围
 
@@ -216,7 +216,7 @@ local_static
 - `safe_area`
 - `text_zones`
 
-当前 layout 仅为后续真实封面渲染提供占位 contract，不生成图片。
+当前 layout 为本地封面渲染和后续更完整封面设计提供基础 contract。
 
 ## quality_flags
 
@@ -228,7 +228,7 @@ local_static
 - `has_primary_image`
 - `has_user_selected_title`
 
-当前即使 pipeline 成功，也默认 `requires_human_review=true`，因为第 4 阶段尚未接入真实视觉理解和封面渲染。
+当前即使 pipeline 成功，也默认 `requires_human_review=true`，因为第 4 阶段尚未接入真实视觉理解，封面设计也仍是基础本地渲染。
 
 ## pipeline_report 字段
 
@@ -253,7 +253,7 @@ local_static
 - cover planner 不读取图片像素。
 - cover planner 不重新根据文件名分类。
 - cover planner 不生成真实封面图片。
-- `cover_image_path` 当前必须为空。
+- `cover_plan.cover_image_path` 当前必须为空，真实封面图路径由 `cover_render_report.cover_image_path` 与 `pipeline_report.cover_rendered_image_path` 记录。
 - `render_status` 当前必须为 `not_rendered`。
 - storyboard 当前不强制消费 `cover_plan.json`。
 
@@ -287,3 +287,11 @@ local_static
 详细规则见：
 
 - `restaurant_docs/COVER_RENDER_SPEC.md`
+
+## Contract freeze
+
+第 4 阶段收口验收见：
+
+- `restaurant_docs/STAGE_4_ACCEPTANCE.md`
+
+第 5 阶段可以依赖本文件列出的 `cover_plan.json` 字段，但不得假设 `cover_plan` 已回写真实渲染状态。真实渲染状态必须从 `cover_render_report.json` 或 `pipeline_report.json` 的 cover render 字段读取。

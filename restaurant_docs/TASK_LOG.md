@@ -2483,3 +2483,54 @@
 - `filename_fallback` provider。
 - `vision` 未授权受控失败。
 - `vision --allow-external-api` 当前未实现受控失败。
+
+## 第 4 阶段：封面生成 Contract Freeze / Acceptance
+
+任务目标：
+- 对第 4 阶段封面生成模块做收口验收。
+- 冻结 `cover_plan.json`、`cover_render_report.json` 和 `pipeline_report.json` 中的 cover 字段。
+- 明确第 5 阶段“分镜脚本与口播文案生成”可依赖字段和不得假设的能力。
+- 新增验收文档 `restaurant_docs/STAGE_4_ACCEPTANCE.md`。
+
+本轮确认的第 5 阶段可依赖字段：
+- `cover_plan.selected_title.text`
+- `cover_plan.cover_copy.title`
+- `cover_plan.title_candidates`
+- `cover_plan.selected_assets.primary_image_id`
+- `cover_plan.selected_assets.primary_image_path`
+- `cover_render_report.cover_image_path`
+- `cover_render_report.title_text`
+- `cover_render_report.source_image_id`
+- `cover_render_report.output_width`
+- `cover_render_report.output_height`
+- `pipeline_report.cover_rendered_image_path`
+- `pipeline_report.cover_render_title_text`
+
+本轮明确第 5 阶段不得假设：
+- 已经有真实图片内容理解。
+- `detected_type` 一定准确。
+- `filename_fallback` 是正式分类能力。
+- `cover_image.png` 是 AI 生成图片。
+- 可以调用外部 API。
+- 可以调用 DeepSeek。
+- 可以调用 TTS。
+- 可以生成音频或视频。
+- WebUI 是最终产品。
+
+本轮文档更新：
+- 新增 `restaurant_docs/STAGE_4_ACCEPTANCE.md`。
+- 更新 `restaurant_docs/COVER_PLAN_SPEC.md`。
+- 更新 `restaurant_docs/COVER_RENDER_SPEC.md`。
+- 更新 `restaurant_docs/PIPELINE_SPEC.md`。
+- 更新 `restaurant_docs/PROJECT_STATUS.md`。
+- 更新 `restaurant_docs/TASK_LOG.md`。
+
+当前边界：
+- 本轮暂不 commit，等待后续提交前复核。
+- 不进入第 5 阶段。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 不修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。

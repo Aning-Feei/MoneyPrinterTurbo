@@ -177,4 +177,17 @@ FONT_FALLBACK_USED
 - Smoke test 输出只允许放在仓库外 `/private/tmp` 或外部样本 `output/`。
 - 不提交 `cover_image.png`。
 - 不提交 `cover_render_report.json` 或任何 output 产物。
-- 本轮暂不 commit，等待后续提交前复核。
+- 第 4 阶段 contract freeze 验收见 `restaurant_docs/STAGE_4_ACCEPTANCE.md`。
+
+第 5 阶段可以依赖本文件列出的 `cover_render_report.json` 字段：
+
+- `cover_image_path`
+- `title_text`
+- `source_image_id`
+- `source_image_path`
+- `output_width`
+- `output_height`
+- `render_status`
+- `blocking`
+
+第 5 阶段不得假设 `cover_image.png` 是 AI 生成图片，也不得把当前基础本地渲染当作最终封面设计系统。

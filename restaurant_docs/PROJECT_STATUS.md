@@ -1864,3 +1864,41 @@ project.json
   - 不调用 TTS。
   - 不生成音频或视频。
   - 未修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
+
+## 第 4 阶段收口：封面生成 Contract Freeze / Acceptance
+
+- 第 4 阶段封面生成模块进入 contract freeze / acceptance。
+- 新增验收文档：
+  - `restaurant_docs/STAGE_4_ACCEPTANCE.md`
+- 已冻结第 5 阶段可依赖的 cover contract：
+  - `cover_plan.json`
+  - `cover_render_report.json`
+  - `pipeline_report.json` 中的 cover plan / cover render 字段
+- 第 5 阶段可依赖：
+  - `cover_plan.selected_title.text`
+  - `cover_plan.cover_copy.title`
+  - `cover_plan.title_candidates`
+  - `cover_plan.selected_assets.primary_image_id`
+  - `cover_plan.selected_assets.primary_image_path`
+  - `cover_render_report.cover_image_path`
+  - `cover_render_report.title_text`
+  - `cover_render_report.source_image_id`
+  - `cover_render_report.output_width`
+  - `cover_render_report.output_height`
+  - `pipeline_report.cover_rendered_image_path`
+  - `pipeline_report.cover_render_title_text`
+- 第 5 阶段不得假设：
+  - 已经有真实图片内容理解。
+  - `detected_type` 一定准确。
+  - `filename_fallback` 是正式分类能力。
+  - `cover_image.png` 是 AI 生成图片。
+  - 可以调用外部 API、DeepSeek、TTS 或生成音频/视频。
+  - WebUI 是最终产品。
+- 本轮验收边界：
+  - 不进入第 5 阶段。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 不修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
+  - 本轮暂不 commit，等待后续提交前复核。

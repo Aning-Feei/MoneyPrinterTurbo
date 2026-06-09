@@ -255,6 +255,36 @@ pipeline 在 `image_understanding.json` 生成后，会执行本地 deterministi
 详细字段和规则见：
 
 - `restaurant_docs/COVER_RENDER_SPEC.md`
+- `restaurant_docs/STAGE_4_ACCEPTANCE.md`
+
+## 第 4 阶段 Cover Contract Freeze
+
+第 4 阶段封面生成模块已完成 contract freeze / acceptance。后续第 5 阶段可以依赖：
+
+- `cover_plan.selected_title.text`
+- `cover_plan.cover_copy.title`
+- `cover_plan.title_candidates`
+- `cover_plan.selected_assets.primary_image_id`
+- `cover_plan.selected_assets.primary_image_path`
+- `cover_render_report.cover_image_path`
+- `cover_render_report.title_text`
+- `cover_render_report.source_image_id`
+- `cover_render_report.output_width`
+- `cover_render_report.output_height`
+- `pipeline_report.cover_rendered_image_path`
+- `pipeline_report.cover_render_title_text`
+
+第 5 阶段不得假设：
+
+- 已经有真实图片内容理解。
+- `detected_type` 一定准确。
+- `filename_fallback` 是正式分类能力。
+- `cover_image.png` 是 AI 生成图片。
+- 可以调用外部 API。
+- 可以调用 DeepSeek。
+- 可以调用 TTS。
+- 可以生成音频或视频。
+- WebUI 是最终产品。
 
 ## Mock Storyboard 规则
 
