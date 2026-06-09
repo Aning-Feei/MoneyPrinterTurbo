@@ -54,6 +54,8 @@ python3 -m restaurant_engine.pipeline_project \
 `image_understanding.json` 顶层必须记录：
 
 - `provider`
+- `analysis_source`
+- `external_api_called`
 - `version`
 - `image_count`
 - `allowed_image_count`
@@ -89,6 +91,10 @@ python3 -m restaurant_engine.pipeline_project \
 规则引擎详细 contract 见：
 
 - `restaurant_docs/RULE_ENGINE_SPEC.md`
+
+第 3 阶段 contract freeze 见：
+
+- `restaurant_docs/STAGE_3_ACCEPTANCE.md`
 
 ## 正式 Vision Provider 目标
 

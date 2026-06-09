@@ -72,6 +72,10 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"target_duration_seconds: {report.target_duration_seconds}")
     print(f"image_count: {report.image_count}")
     print(f"image_understanding_provider: {report.image_understanding_provider}")
+    print(
+        "image_understanding_analysis_source: "
+        f"{report.image_understanding_analysis_source}"
+    )
     image_understanding_status = (
         "passed" if report.image_understanding_passed else "failed"
     )

@@ -2,6 +2,10 @@
 
 本文件记录第 3 阶段本地规则引擎骨架。规则引擎位于 `image_understanding.json` 之后、`storyboard.json` 之前，用于把图片理解结果转换为后续 storyboard 可消费的本地决策信号。
 
+第 3 阶段 contract freeze 与第 4 阶段可依赖字段见：
+
+- `restaurant_docs/STAGE_3_ACCEPTANCE.md`
+
 ## 当前目标
 
 - 读取 pipeline 已生成的 `image_understanding` 结果。
@@ -116,3 +120,4 @@
 - `vision` 未授权时会在 image understanding 阶段被阻止，不生成 rule engine report。
 - `vision` 授权但当前未实现时也不会调用外部 API，不生成 rule engine report。
 - 本阶段不生成视频、不调用 TTS、不调用图生视频。
+- 第 4 阶段不得假设已经有真实图片内容理解，也不得把 `filename_fallback` 当作正式分类能力。

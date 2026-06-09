@@ -61,6 +61,7 @@ pipeline 在 validator 通过并完成本地图片扫描后，会先生成 `imag
 
 - `image_understanding_path`
 - `image_understanding_provider`
+- `image_understanding_analysis_source`
 - `image_understanding_passed`
 - `allowed_image_count`
 - `rejected_image_count`
@@ -70,6 +71,7 @@ pipeline 在 validator 通过并完成本地图片扫描后，会先生成 `imag
 
 - `restaurant_docs/IMAGE_UNDERSTANDING_SPEC.md`
 - `restaurant_docs/IMAGE_UNDERSTANDING_PROVIDER_SPEC.md`
+- `restaurant_docs/STAGE_3_ACCEPTANCE.md`
 
 ## Rule Engine Contract
 
@@ -115,6 +117,7 @@ pipeline 在 `image_understanding.json` 生成后，会执行本地 deterministi
 详细字段和规则见：
 
 - `restaurant_docs/RULE_ENGINE_SPEC.md`
+- `restaurant_docs/STAGE_3_ACCEPTANCE.md`
 
 ## Mock Storyboard 规则
 

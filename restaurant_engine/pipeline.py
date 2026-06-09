@@ -998,6 +998,11 @@ def _build_report(
         image_count=image_count,
         image_understanding_path=image_understanding_path,
         image_understanding_provider=image_understanding_provider,
+        image_understanding_analysis_source=(
+            image_understanding.analysis_source
+            if image_understanding is not None
+            else ""
+        ),
         rule_engine_report_path=rule_engine_report_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,

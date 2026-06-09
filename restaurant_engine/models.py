@@ -220,6 +220,8 @@ class ImageUnderstandingReport:
     project_id: str
     version: str
     provider: str
+    analysis_source: str
+    external_api_called: bool
     image_dir: str
     image_count: int
     allowed_image_count: int
@@ -286,6 +288,7 @@ class PipelineReport:
     image_count: int
     image_understanding_path: str | None
     image_understanding_provider: str
+    image_understanding_analysis_source: str
     rule_engine_report_path: str | None
     storyboard_path: str | None
     narration_plan_path: str | None

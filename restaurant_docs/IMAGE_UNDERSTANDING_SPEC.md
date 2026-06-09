@@ -17,6 +17,8 @@
 - `project_id`
 - `version`
 - `provider`
+- `analysis_source`
+- `external_api_called`
 - `image_dir`
 - `image_count`
 - `allowed_image_count`
@@ -162,6 +164,10 @@ python3 -m restaurant_engine.pipeline_project \
 - `filename_fallback` 必须显式指定，只能作为开发 fallback。
 - `vision` 必须显式指定并传入 `--allow-external-api`，当前尚未实现。
 - 本阶段不生成音频、不生成视频。
+
+第 3 阶段 contract freeze 和第 4 阶段可依赖字段见：
+
+- `restaurant_docs/STAGE_3_ACCEPTANCE.md`
 
 ## 后续增强
 

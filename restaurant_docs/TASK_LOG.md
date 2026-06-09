@@ -2300,3 +2300,39 @@
   - 未生成音频。
   - 未生成视频。
   - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。
+
+## 第 3 阶段 Contract Freeze / Acceptance
+
+- 本次目标：
+  - 收口验收第 3 阶段图片理解与规则引擎 contract。
+  - 明确第 4 阶段封面生成模块可以依赖的字段。
+  - 明确第 4 阶段不得假设已经存在真实视觉理解。
+- 新增文档：
+  - `restaurant_docs/STAGE_3_ACCEPTANCE.md`
+- 最小 contract 修正：
+  - `image_understanding.json` 顶层新增 `analysis_source`。
+  - `image_understanding.json` 顶层新增 `external_api_called`。
+  - `pipeline_report.json` 新增 `image_understanding_analysis_source`。
+- 冻结输出：
+  - `image_understanding.json`
+  - `rule_engine_report.json`
+  - `storyboard.json`
+  - `narration_plan.json`
+  - `pipeline_report.json`
+- 第 4 阶段可依赖：
+  - `image_understanding` 单图 `image_id` / `image_path` / `detected_type` / `source`。
+  - `rule_engine_report.asset_groups`。
+  - `rule_engine_report.storyboard_hints`。
+  - `pipeline_report` 中图片理解与规则引擎状态字段。
+- 第 4 阶段不得假设：
+  - 已经有真实图片内容理解。
+  - `filename_fallback` 是正式分类能力。
+  - 可以调用外部 API。
+  - 可以生成音频或视频。
+- 当前边界：
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 TTS。
+  - 不生成音频。
+  - 不生成视频。
+  - 未进入第 4 阶段。

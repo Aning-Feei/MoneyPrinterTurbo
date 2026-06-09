@@ -1724,3 +1724,29 @@ project.json
   - 不调用 DeepSeek。
   - 不调用任何外部 API。
   - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
+
+## 第 3 阶段收口验收：Contract Freeze
+
+- 第 3 阶段进入 contract freeze / acceptance。
+- 新增 `restaurant_docs/STAGE_3_ACCEPTANCE.md`。
+- 冻结第 4 阶段可依赖的输入边界：
+  - `image_understanding.json`
+  - `rule_engine_report.json`
+  - `storyboard.json`
+  - `narration_plan.json`
+  - `pipeline_report.json`
+- 补齐 `image_understanding` 顶层 `analysis_source` 与 `external_api_called` 字段。
+- 补齐 `pipeline_report.json` 中 `image_understanding_analysis_source` 字段。
+- 当前确认：
+  - `mock` 是默认 provider。
+  - `filename_fallback` 只能显式启用，且不是正式图片内容理解。
+  - `vision` 当前仍为受控未实现 stub。
+  - `rule_engine` 为 `local_static`，只消费 `image_understanding`。
+  - `rule_engine` 不重新根据文件名分类，不读取图片像素，不调用外部 API。
+  - 当前未进入第 4 阶段，未实现封面生成。
+- 当前边界：
+  - 不调用 DeepSeek。
+  - 不调用视觉模型。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 未修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
