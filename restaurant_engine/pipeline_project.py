@@ -61,6 +61,13 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"validation_passed: {report.validation_passed}")
     print(f"target_duration_seconds: {report.target_duration_seconds}")
     print(f"image_count: {report.image_count}")
+    image_understanding_status = (
+        "passed" if report.image_understanding_passed else "failed"
+    )
+    print(f"image_understanding: {image_understanding_status}")
+    print(f"allowed_images: {report.allowed_image_count}")
+    print(f"rejected_images: {report.rejected_image_count}")
+    print(f"image_category_counts: {report.image_category_counts}")
     print(f"scene_count: {report.scene_count}")
     print(f"scene_durations: {report.scene_durations}")
     print(f"total_duration_seconds: {report.total_duration_seconds}")
@@ -80,6 +87,7 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"narration_line_count: {report.narration_line_count}")
     print(f"total_estimated_speech_seconds: {report.total_estimated_speech_seconds}")
     print(f"output_dir: {report.output_dir}")
+    print(f"image_understanding: {report.image_understanding_path}")
     print(f"storyboard: {report.storyboard_path}")
     print(f"narration_plan: {report.narration_plan_path}")
     print(f"pipeline_report: {report_path}")

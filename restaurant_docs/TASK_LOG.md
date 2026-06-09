@@ -2192,3 +2192,37 @@
   - 估算朗读总时长为 32.0 秒，后续真实 TTS 阶段需校准。
 - 结论：
   - DeepSeek narration plan / TTS contract 真实复测通过。
+
+## Mock Image Understanding 骨架
+
+- 本次目标：
+  - 在接入真实图片理解、OCR、图生视频和封面筛选前，先生成本地 mock `image_understanding.json`。
+  - 将图片理解结果写入 `pipeline_report.json`，作为后续链路前置 contract。
+- 新增/调整内容：
+  - 新增 `ImageUnderstandingItem`。
+  - 新增 `ImageUnderstandingReport`。
+  - 新增 `restaurant_engine/image_understanding.py`。
+  - pipeline 新增 `build_image_understanding` step。
+  - pipeline 新增 `write_image_understanding` step。
+  - `pipeline_report.json` 新增：
+    - `image_understanding_path`
+    - `image_understanding_passed`
+    - `allowed_image_count`
+    - `rejected_image_count`
+    - `image_category_counts`
+  - CLI 摘要增加图片理解状态、allowed/rejected 数量、分类统计和输出路径。
+  - 新增 `restaurant_docs/IMAGE_UNDERSTANDING_SPEC.md` 记录字段和规则。
+- 当前规则：
+  - 只基于文件名识别图片类型。
+  - `intro` / `interior` / `dish` / `dining` / `detail` / `extra` / `logo` / `other` 为可用或待复核类型。
+  - 包含 `qrcode` / `qr` / `phone` / `tel` / `address` / `menu` / `price` / `contact` / `wechat` / `wx` 的文件名标记为 `invalid_*`。
+  - rejected images 当前只产生 warning，不阻断 pipeline。
+  - 没有图片时产生 error，pipeline `ok=false`。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不调用 TTS。
+  - 本轮不调用视觉模型或 OCR。
+  - 本轮不生成音频。
+  - 本轮不生成视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。

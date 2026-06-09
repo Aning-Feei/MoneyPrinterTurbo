@@ -8,10 +8,12 @@ from typing import Any
 
 from .models import (
     ImageFile,
+    ImageUnderstandingReport,
     NarrationPlan,
     PipelineReport,
     PipelineStep,
 )
+from .image_understanding import build_mock_image_understanding
 from .deepseek_client import DeepSeekClient
 from .storyboard_planner import (
     SUPPORTED_PLANNERS,
@@ -32,6 +34,7 @@ from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
 
 STORYBOARD_FILE_NAME = "storyboard.json"
+IMAGE_UNDERSTANDING_FILE_NAME = "image_understanding.json"
 NARRATION_PLAN_FILE_NAME = "narration_plan.json"
 PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
 
@@ -50,6 +53,8 @@ def run_pipeline(
     project_config: dict[str, Any] = {}
     image_dir: Path | None = None
     image_files: list[ImageFile] = []
+    image_understanding: ImageUnderstandingReport | None = None
+    image_understanding_path: str | None = None
     storyboard_path: str | None = None
     narration_plan_path: str | None = None
     validation_passed = False
@@ -204,6 +209,109 @@ def run_pipeline(
             },
         )
     )
+
+    can_build_image_understanding = (
+        validation_passed
+        and image_dir is not None
+        and not _has_failed_step(
+            steps,
+            {
+                "load_project_json",
+                "validate_project",
+                "resolve_image_dir",
+                "scan_images",
+                "create_output_dir",
+            },
+        )
+    )
+    if can_build_image_understanding:
+        try:
+            image_understanding = build_mock_image_understanding(
+                project_id=get_project_id(project_config),
+                image_dir=image_dir,
+                image_files=image_files,
+            )
+            if image_understanding.errors:
+                issues.extend(
+                    _image_understanding_errors_to_pipeline_issues(
+                        image_understanding.errors
+                    )
+                )
+                steps.append(
+                    PipelineStep(
+                        name="build_image_understanding",
+                        status="failed",
+                        message=(
+                            "Image understanding failed with "
+                            f"{len(image_understanding.errors)} errors."
+                        ),
+                    )
+                )
+            else:
+                issues.extend(
+                    _image_understanding_warnings_to_pipeline_issues(
+                        image_understanding.warnings
+                    )
+                )
+                steps.append(
+                    PipelineStep(
+                        name="build_image_understanding",
+                        status="passed",
+                        message=(
+                            "Built mock image understanding for "
+                            f"{image_understanding.image_count} images."
+                        ),
+                    )
+                )
+        except Exception as exc:
+            issues.append(_pipeline_issue("build_image_understanding_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="build_image_understanding",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="build_image_understanding",
+                status="skipped",
+                message="Skipped because validation or image scanning did not pass.",
+            )
+        )
+
+    if image_understanding is not None:
+        try:
+            image_understanding_file = write_image_understanding(
+                output_dir,
+                image_understanding,
+            )
+            image_understanding_path = str(image_understanding_file)
+            steps.append(
+                PipelineStep(
+                    name="write_image_understanding",
+                    status="passed",
+                    message=f"Wrote image understanding: {image_understanding_file}",
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("write_image_understanding_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="write_image_understanding",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="write_image_understanding",
+                status="skipped",
+                message="Skipped because no image understanding was built.",
+            )
+        )
 
     storyboard = None
     if can_plan_storyboard and planner_name == "deepseek" and not allow_external_api:
@@ -520,12 +628,14 @@ def run_pipeline(
         image_dir=image_dir,
         output_dir=output_dir,
         image_count=len(image_files),
+        image_understanding_path=image_understanding_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
         planner=planner_name,
         external_api_allowed=allow_external_api,
         external_api_called=external_api_called,
+        image_understanding=image_understanding,
         storyboard=storyboard,
         storyboard_contract_report=storyboard_contract_report,
         storyboard_quality_report=storyboard_quality_report,
@@ -550,12 +660,14 @@ def run_pipeline(
             image_dir=image_dir,
             output_dir=output_dir,
             image_count=len(image_files),
+            image_understanding_path=image_understanding_path,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
             planner=planner_name,
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
+            image_understanding=image_understanding,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
@@ -580,12 +692,14 @@ def run_pipeline(
             image_dir=image_dir,
             output_dir=output_dir,
             image_count=len(image_files),
+            image_understanding_path=image_understanding_path,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
             planner=planner_name,
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
+            image_understanding=image_understanding,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
@@ -652,6 +766,17 @@ def write_storyboard(output_dir: str | Path, storyboard) -> Path:
     return storyboard_path
 
 
+def write_image_understanding(
+    output_dir: str | Path,
+    image_understanding: ImageUnderstandingReport,
+) -> Path:
+    output_path = (
+        Path(output_dir).expanduser().resolve() / IMAGE_UNDERSTANDING_FILE_NAME
+    )
+    _write_json(output_path, asdict(image_understanding))
+    return output_path
+
+
 def write_pipeline_report(output_dir: str | Path, report: PipelineReport) -> Path:
     report_path = Path(output_dir).expanduser().resolve() / PIPELINE_REPORT_FILE_NAME
     _write_json(report_path, pipeline_report_to_dict(report))
@@ -680,12 +805,14 @@ def _build_report(
     image_dir: Path | None,
     output_dir: Path,
     image_count: int,
+    image_understanding_path: str | None,
     storyboard_path: str | None,
     narration_plan_path: str | None,
     validation_passed: bool,
     planner: str,
     external_api_allowed: bool,
     external_api_called: bool,
+    image_understanding,
     storyboard,
     storyboard_contract_report,
     storyboard_quality_report,
@@ -706,6 +833,7 @@ def _build_report(
         image_dir=str(image_dir) if image_dir is not None else "",
         output_dir=str(output_dir),
         image_count=image_count,
+        image_understanding_path=image_understanding_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
@@ -778,6 +906,24 @@ def _build_report(
             if narration_plan is not None
             else 0.0
         ),
+        image_understanding_passed=(
+            image_understanding is not None and not image_understanding.errors
+        ),
+        allowed_image_count=(
+            image_understanding.allowed_image_count
+            if image_understanding is not None
+            else 0
+        ),
+        rejected_image_count=(
+            image_understanding.rejected_image_count
+            if image_understanding is not None
+            else 0
+        ),
+        image_category_counts=(
+            dict(image_understanding.category_counts)
+            if image_understanding is not None
+            else {}
+        ),
         planner=planner,
         external_api_allowed=external_api_allowed,
         external_api_called=external_api_called,
@@ -813,6 +959,36 @@ def _contract_issues_to_pipeline_issues(contract_issues) -> list[dict[str, Any]]
             "file_name": None,
         }
         for issue in contract_issues
+    ]
+
+
+def _image_understanding_warnings_to_pipeline_issues(
+    warnings: list[str],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "code": "image_understanding_warning",
+            "message": warning,
+            "severity": "warning",
+            "field": "image_understanding",
+            "file_name": None,
+        }
+        for warning in warnings
+    ]
+
+
+def _image_understanding_errors_to_pipeline_issues(
+    errors: list[str],
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "code": "image_understanding_error",
+            "message": error,
+            "severity": "error",
+            "field": "image_understanding",
+            "file_name": None,
+        }
+        for error in errors
     ]
 
 

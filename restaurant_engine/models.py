@@ -198,6 +198,37 @@ class TTSContractReport:
     total_estimated_speech_seconds: float = 0.0
 
 
+@dataclass(frozen=True)
+class ImageUnderstandingItem:
+    image_id: int
+    filename: str
+    image_path: str
+    detected_type: str
+    quality_score: float
+    cover_score: float
+    video_score: float
+    risk_score: float
+    allowed_in_video: bool
+    recommended_usage: str
+    recommended_action: str
+    reason: str
+
+
+@dataclass
+class ImageUnderstandingReport:
+    project_id: str
+    version: str
+    image_dir: str
+    image_count: int
+    allowed_image_count: int
+    rejected_image_count: int
+    images: list[ImageUnderstandingItem] = field(default_factory=list)
+    category_counts: dict[str, int] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    notes: str = ""
+
+
 @dataclass
 class PipelineReport:
     ok: bool
@@ -206,6 +237,7 @@ class PipelineReport:
     image_dir: str
     output_dir: str
     image_count: int
+    image_understanding_path: str | None
     storyboard_path: str | None
     narration_plan_path: str | None
     validation_passed: bool
@@ -226,6 +258,10 @@ class PipelineReport:
     tts_contract_warnings: list[dict[str, Any]] = field(default_factory=list)
     narration_line_count: int = 0
     total_estimated_speech_seconds: float = 0.0
+    image_understanding_passed: bool = False
+    allowed_image_count: int = 0
+    rejected_image_count: int = 0
+    image_category_counts: dict[str, int] = field(default_factory=dict)
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False

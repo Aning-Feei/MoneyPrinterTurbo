@@ -22,9 +22,46 @@
 示例输出：
 
 ```text
+/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/image_understanding.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json
+/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/narration_plan.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json
 ```
+
+## Mock Image Understanding
+
+pipeline 在 validator 通过并完成本地图片扫描后，会先生成本地 mock 版 `image_understanding.json`，再进入 storyboard planning。
+
+当前阶段的 image understanding 只基于文件名规则：
+
+- 不调用视觉模型。
+- 不调用 OCR。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不读取图片像素内容。
+
+输出用途：
+
+- 记录每张图片的 mock 类型识别。
+- 记录是否允许进入视频。
+- 记录适合封面、视频场景、辅助素材或需要人工复核。
+- 为后续真实图片理解、图片筛选、封面选择和图生视频前置门禁保留 contract。
+
+当前拒绝规则：
+
+- 文件名包含 `qrcode` / `qr` / `phone` / `tel` / `address` / `menu` / `price` / `contact` / `wechat` / `wx` 时标记为 `invalid_*` 并拒绝进入视频。
+- 拒绝图片当前只产生 warning，不阻塞 pipeline。
+- 没有图片时为 error，pipeline `ok=false`。
+
+`pipeline_report.json` 记录：
+
+- `image_understanding_path`
+- `image_understanding_passed`
+- `allowed_image_count`
+- `rejected_image_count`
+- `image_category_counts`
+
+详细字段和规则见 `restaurant_docs/IMAGE_UNDERSTANDING_SPEC.md`。
 
 ## Mock Storyboard 规则
 
@@ -253,7 +290,13 @@ CLI 输出：
 - `image_dir`
 - `output_dir`
 - `image_count`
+- `image_understanding_path`
+- `image_understanding_passed`
+- `allowed_image_count`
+- `rejected_image_count`
+- `image_category_counts`
 - `storyboard_path`
+- `narration_plan_path`
 - `validation_passed`
 - `target_duration_seconds`
 - `scene_count`

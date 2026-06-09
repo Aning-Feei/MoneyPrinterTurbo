@@ -3,6 +3,8 @@
 from .deepseek_client import DeepSeekClient, DeepSeekClientError, MissingDeepSeekAPIKey
 from .models import (
     ImageFile,
+    ImageUnderstandingItem,
+    ImageUnderstandingReport,
     NarrationLine,
     NarrationPlan,
     PipelineReport,
@@ -22,6 +24,10 @@ from .models import (
     ValidationIssue,
     ValidationReport,
 )
+from .image_understanding import (
+    build_mock_image_understanding,
+    image_understanding_to_dict,
+)
 from .narration_plan import (
     build_narration_plan,
     estimate_speech_seconds,
@@ -37,6 +43,7 @@ from .pipeline import (
     run_pipeline,
     scan_image_files,
     write_narration_plan,
+    write_image_understanding,
     write_pipeline_report,
     write_storyboard,
 )
@@ -68,6 +75,8 @@ __all__ = [
     "DeepSeekClient",
     "DeepSeekClientError",
     "ImageFile",
+    "ImageUnderstandingItem",
+    "ImageUnderstandingReport",
     "MissingDeepSeekAPIKey",
     "NarrationLine",
     "NarrationPlan",
@@ -87,6 +96,7 @@ __all__ = [
     "TTSContractReport",
     "ValidationIssue",
     "ValidationReport",
+    "build_mock_image_understanding",
     "build_narration_plan",
     "build_mock_storyboard",
     "build_shot_plan",
@@ -96,6 +106,7 @@ __all__ = [
     "estimate_narration_duration",
     "estimate_speech_seconds",
     "identify_image_role",
+    "image_understanding_to_dict",
     "load_project_json",
     "normalize_planner",
     "narration_plan_to_dict",
@@ -114,6 +125,7 @@ __all__ = [
     "validate_tts_contract",
     "write_pipeline_report",
     "write_preflight_report",
+    "write_image_understanding",
     "write_narration_plan",
     "write_report",
     "write_storyboard",

@@ -1645,3 +1645,26 @@ project.json
   - 未发现 API Key 写入 report/storyboard/narration_plan。
   - 当前阻塞问题：无。
   - 当前非阻塞问题：估算朗读时长略超过目标，后续真实 TTS 阶段需要做音频时长校准。
+
+## 第 2 阶段补充：Mock Image Understanding 骨架
+
+- 开始实现 mock image understanding 骨架。
+- 本轮目标是在进入 storyboard / TTS / 图生视频 / 视频合成前，为本地图片建立图片理解占位 contract。
+- 新增能力：
+  - 根据本地图片文件名生成 `image_understanding.json`。
+  - 每张图片记录 mock 类型、质量分、封面分、视频分、风险分、是否允许进入视频和推荐动作。
+  - `pipeline_report.json` 记录 `image_understanding_path`、`image_understanding_passed`、`allowed_image_count`、`rejected_image_count`、`image_category_counts`。
+  - CLI 输出 image understanding 摘要。
+- 当前规则：
+  - `intro` / `interior` / `dish` / `dining` / `detail` / `extra` / `logo` / `other` 基于文件名识别。
+  - 文件名包含二维码、电话、地址、菜单、价格、联系方式、微信等风险词时标记为 `invalid_*` 并拒绝进入视频。
+  - 当前 rejected images 只产生 warning，不阻断 pipeline。
+  - 没有图片时为 error，pipeline `ok=false`。
+- 当前边界：
+  - 不读取图片像素内容。
+  - 不调用视觉模型或 OCR。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
