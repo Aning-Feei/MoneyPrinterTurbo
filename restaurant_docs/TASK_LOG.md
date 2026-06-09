@@ -2112,3 +2112,38 @@
   - 未修改代码。
 - 结论：
   - DeepSeek storyboard quality contract 真实复测通过。
+
+## TTS contract / narration plan 骨架
+
+- 本次目标：
+  - 在接入真实 TTS 前，从 storyboard 生成 `narration_plan.json`。
+  - 校验每个 scene 的 narration 是否大致适合对应 `duration_seconds`。
+- 新增/调整内容：
+  - 新增 `NarrationLine`。
+  - 新增 `NarrationPlan`。
+  - 新增 `TTSContractReport`。
+  - 新增 `restaurant_engine/narration_plan.py`。
+  - pipeline 新增 `build_narration_plan` step。
+  - pipeline 新增 `validate_tts_contract` step。
+  - pipeline 新增 `write_narration_plan` step。
+  - `pipeline_report.json` 新增：
+    - `narration_plan_path`
+    - `tts_contract_passed`
+    - `tts_contract_errors`
+    - `tts_contract_warnings`
+    - `narration_line_count`
+    - `total_estimated_speech_seconds`
+  - CLI 摘要增加 TTS contract 状态、errors/warnings 数量和 narration plan 路径。
+- 当前校验规则：
+  - narration 为空：error。
+  - narration 不含中文：error。
+  - scene duration 非正数：error。
+  - 估算朗读时长超过 scene duration：warning。
+  - 估算朗读时长明显超过 scene duration：error。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不调用 TTS。
+  - 本轮不生成音频。
+  - 本轮不生成视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。

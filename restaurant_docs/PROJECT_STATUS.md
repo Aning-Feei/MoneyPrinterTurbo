@@ -1590,3 +1590,27 @@ project.json
   - 未修改代码。
   - 当前阻塞问题：无。
   - 当前非阻塞问题：系统 `python3` 缺少项目依赖，实际使用 `.venv` Python 执行。
+
+## 第 2 阶段补充：TTS Contract / Narration Plan 骨架
+
+- 开始实现 TTS contract / narration plan 骨架。
+- 本轮目标是在接入真实 TTS 前，先从 storyboard 生成本地 `narration_plan.json`。
+- 新增能力：
+  - 每个 storyboard scene 生成一条 narration line。
+  - 记录 scene index、图片名、画面时长、旁白、中文字符数、估算朗读时长。
+  - 根据中文字符数和 scene duration 做 TTS contract 校验。
+  - `pipeline_report.json` 记录 TTS contract 结果。
+  - CLI 输出 TTS contract 摘要。
+- TTS contract 当前处理：
+  - 空 narration、非中文 narration、无效 duration 为 error。
+  - 估算朗读时长超过画面时长为 warning。
+  - 明显超出画面时长的 narration 为 error。
+- 当前边界：
+  - 不生成音频。
+  - 不调用 TTS。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不生成视频。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。

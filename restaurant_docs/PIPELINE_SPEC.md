@@ -325,3 +325,53 @@ DeepSeek planner prompt 约束：
   - storyboard-to-narration 导出
   - 图生视频适配层设计
   - 新项目 `restaurant-video-ai` 架构设计
+
+## Narration Plan / TTS Contract 骨架
+
+在接入真实 TTS 前，pipeline 先从已通过 storyboard structure / quality contract 的 storyboard 生成本地 `narration_plan.json`。
+
+输出文件：
+
+- `storyboard.json`
+- `narration_plan.json`
+- `pipeline_report.json`
+
+`narration_plan.json` 当前包含：
+
+- `project_id`
+- `version`
+- `lines`
+- `target_duration_seconds`
+- `total_scene_duration_seconds`
+- `total_duration_seconds`
+- `total_estimated_speech_seconds`
+- `speech_rate_cjk_per_second`
+- `notes`
+
+每条 `lines` 包含：
+
+- `scene_index`
+- `image_name`
+- `duration_seconds`
+- `narration`
+- `cjk_char_count`
+- `estimated_tts_seconds`
+- `estimated_speech_seconds`
+- `recommended_max_cjk_chars`
+
+TTS contract 当前规则：
+
+- narration 为空：error。
+- narration 不含中文：error。
+- `duration_seconds <= 0`：error。
+- 估算朗读时长超过 scene 时长：warning。
+- 估算朗读时长超过 scene 时长 3 秒以上：error。
+
+当前阶段边界：
+
+- 不生成音频。
+- 不调用 TTS。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不生成视频。
+- 不修改 WebUI、`app/` 或 `config.toml`。

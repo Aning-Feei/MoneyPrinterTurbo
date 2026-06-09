@@ -73,8 +73,15 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"storyboard quality: {quality_status}")
     print(f"quality errors count: {len(report.storyboard_quality_errors)}")
     print(f"quality warnings count: {len(report.storyboard_quality_warnings)}")
+    tts_status = "passed" if report.tts_contract_passed else "failed"
+    print(f"tts contract: {tts_status}")
+    print(f"tts errors count: {len(report.tts_contract_errors)}")
+    print(f"tts warnings count: {len(report.tts_contract_warnings)}")
+    print(f"narration_line_count: {report.narration_line_count}")
+    print(f"total_estimated_speech_seconds: {report.total_estimated_speech_seconds}")
     print(f"output_dir: {report.output_dir}")
     print(f"storyboard: {report.storyboard_path}")
+    print(f"narration_plan: {report.narration_plan_path}")
     print(f"pipeline_report: {report_path}")
     print("issues:")
     if report.issues:

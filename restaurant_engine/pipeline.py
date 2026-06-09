@@ -8,6 +8,7 @@ from typing import Any
 
 from .models import (
     ImageFile,
+    NarrationPlan,
     PipelineReport,
     PipelineStep,
 )
@@ -23,10 +24,15 @@ from .storyboard_contract import (
     validate_storyboard_contract,
     validate_storyboard_quality_contract,
 )
+from .narration_plan import (
+    build_narration_plan,
+    validate_tts_contract,
+)
 from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
 
 STORYBOARD_FILE_NAME = "storyboard.json"
+NARRATION_PLAN_FILE_NAME = "narration_plan.json"
 PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
 
 
@@ -45,10 +51,13 @@ def run_pipeline(
     image_dir: Path | None = None
     image_files: list[ImageFile] = []
     storyboard_path: str | None = None
+    narration_plan_path: str | None = None
     validation_passed = False
     external_api_called = False
     storyboard_contract_report = None
     storyboard_quality_report = None
+    narration_plan: NarrationPlan | None = None
+    tts_contract_report = None
     issues: list[dict[str, Any]] = []
     steps: list[PipelineStep] = []
 
@@ -358,6 +367,95 @@ def run_pipeline(
             )
         )
 
+    can_build_narration_plan = (
+        storyboard is not None
+        and storyboard_contract_report is not None
+        and storyboard_contract_report.passed
+        and storyboard_quality_report is not None
+        and storyboard_quality_report.passed
+    )
+    if can_build_narration_plan:
+        try:
+            narration_plan = build_narration_plan(storyboard)
+            steps.append(
+                PipelineStep(
+                    name="build_narration_plan",
+                    status="passed",
+                    message=(
+                        "Built narration plan with "
+                        f"{len(narration_plan.lines)} lines."
+                    ),
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("build_narration_plan_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="build_narration_plan",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="build_narration_plan",
+                status="skipped",
+                message="Skipped because storyboard contracts did not pass.",
+            )
+        )
+
+    if narration_plan is not None:
+        try:
+            tts_contract_report = validate_tts_contract(
+                narration_plan=narration_plan,
+                scene_count=len(storyboard.scenes) if storyboard is not None else 0,
+            )
+            if tts_contract_report.passed:
+                steps.append(
+                    PipelineStep(
+                        name="validate_tts_contract",
+                        status="passed",
+                        message=(
+                            "TTS contract passed with "
+                            f"{len(tts_contract_report.warnings)} warnings."
+                        ),
+                    )
+                )
+            else:
+                issues.extend(
+                    _contract_issues_to_pipeline_issues(
+                        tts_contract_report.errors
+                    )
+                )
+                steps.append(
+                    PipelineStep(
+                        name="validate_tts_contract",
+                        status="failed",
+                        message=(
+                            "TTS contract failed with "
+                            f"{len(tts_contract_report.errors)} errors."
+                        ),
+                    )
+                )
+        except Exception as exc:
+            issues.append(_pipeline_issue("tts_contract_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="validate_tts_contract",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="validate_tts_contract",
+                status="skipped",
+                message="Skipped because no narration plan was built.",
+            )
+        )
+
     if storyboard is not None:
         try:
             storyboard_file = write_storyboard(output_dir, storyboard)
@@ -387,6 +485,35 @@ def run_pipeline(
             )
         )
 
+    if narration_plan is not None:
+        try:
+            narration_plan_file = write_narration_plan(output_dir, narration_plan)
+            narration_plan_path = str(narration_plan_file)
+            steps.append(
+                PipelineStep(
+                    name="write_narration_plan",
+                    status="passed",
+                    message=f"Wrote narration plan: {narration_plan_file}",
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("write_narration_plan_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="write_narration_plan",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="write_narration_plan",
+                status="skipped",
+                message="Skipped because no narration plan was built.",
+            )
+        )
+
     report = _build_report(
         project_config=project_config,
         project_file=project_file,
@@ -394,6 +521,7 @@ def run_pipeline(
         output_dir=output_dir,
         image_count=len(image_files),
         storyboard_path=storyboard_path,
+        narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
         planner=planner_name,
         external_api_allowed=allow_external_api,
@@ -401,6 +529,8 @@ def run_pipeline(
         storyboard=storyboard,
         storyboard_contract_report=storyboard_contract_report,
         storyboard_quality_report=storyboard_quality_report,
+        narration_plan=narration_plan,
+        tts_contract_report=tts_contract_report,
         steps=steps,
         issues=issues,
     )
@@ -421,6 +551,7 @@ def run_pipeline(
             output_dir=output_dir,
             image_count=len(image_files),
             storyboard_path=storyboard_path,
+            narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
             planner=planner_name,
             external_api_allowed=allow_external_api,
@@ -428,6 +559,8 @@ def run_pipeline(
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
+            narration_plan=narration_plan,
+            tts_contract_report=tts_contract_report,
             steps=steps,
             issues=issues,
         )
@@ -448,6 +581,7 @@ def run_pipeline(
             output_dir=output_dir,
             image_count=len(image_files),
             storyboard_path=storyboard_path,
+            narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
             planner=planner_name,
             external_api_allowed=allow_external_api,
@@ -455,6 +589,8 @@ def run_pipeline(
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
+            narration_plan=narration_plan,
+            tts_contract_report=tts_contract_report,
             steps=steps,
             issues=issues,
         )
@@ -522,6 +658,14 @@ def write_pipeline_report(output_dir: str | Path, report: PipelineReport) -> Pat
     return report_path
 
 
+def write_narration_plan(output_dir: str | Path, narration_plan: NarrationPlan) -> Path:
+    narration_plan_path = (
+        Path(output_dir).expanduser().resolve() / NARRATION_PLAN_FILE_NAME
+    )
+    _write_json(narration_plan_path, asdict(narration_plan))
+    return narration_plan_path
+
+
 def pipeline_report_to_dict(report: PipelineReport) -> dict[str, Any]:
     return asdict(report)
 
@@ -537,6 +681,7 @@ def _build_report(
     output_dir: Path,
     image_count: int,
     storyboard_path: str | None,
+    narration_plan_path: str | None,
     validation_passed: bool,
     planner: str,
     external_api_allowed: bool,
@@ -544,6 +689,8 @@ def _build_report(
     storyboard,
     storyboard_contract_report,
     storyboard_quality_report,
+    narration_plan,
+    tts_contract_report,
     steps: list[PipelineStep],
     issues: list[dict[str, Any]],
 ) -> PipelineReport:
@@ -560,6 +707,7 @@ def _build_report(
         output_dir=str(output_dir),
         image_count=image_count,
         storyboard_path=storyboard_path,
+        narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
         target_duration_seconds=get_target_duration_seconds(project_config),
         scene_count=len(storyboard.scenes) if storyboard is not None else 0,
@@ -606,6 +754,29 @@ def _build_report(
             [asdict(issue) for issue in storyboard_quality_report.warnings]
             if storyboard_quality_report is not None
             else []
+        ),
+        tts_contract_passed=(
+            tts_contract_report.passed
+            if tts_contract_report is not None
+            else False
+        ),
+        tts_contract_errors=(
+            [asdict(issue) for issue in tts_contract_report.errors]
+            if tts_contract_report is not None
+            else []
+        ),
+        tts_contract_warnings=(
+            [asdict(issue) for issue in tts_contract_report.warnings]
+            if tts_contract_report is not None
+            else []
+        ),
+        narration_line_count=(
+            len(narration_plan.lines) if narration_plan is not None else 0
+        ),
+        total_estimated_speech_seconds=(
+            narration_plan.total_estimated_speech_seconds
+            if narration_plan is not None
+            else 0.0
         ),
         planner=planner,
         external_api_allowed=external_api_allowed,

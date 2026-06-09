@@ -162,6 +162,42 @@ class StoryboardQualityReport:
     max_narration_cjk_chars: int = 0
 
 
+@dataclass(frozen=True)
+class NarrationLine:
+    scene_index: int
+    image_name: str
+    duration_seconds: int
+    narration: str
+    cjk_char_count: int
+    estimated_tts_seconds: float
+    estimated_speech_seconds: float
+    recommended_max_cjk_chars: int
+
+
+@dataclass
+class NarrationPlan:
+    project_id: str
+    version: str
+    lines: list[NarrationLine] = field(default_factory=list)
+    target_duration_seconds: int = 0
+    total_scene_duration_seconds: int = 0
+    total_duration_seconds: int = 0
+    total_estimated_speech_seconds: float = 0.0
+    speech_rate_cjk_per_second: float = 4.0
+    notes: str = ""
+
+
+@dataclass
+class TTSContractReport:
+    passed: bool
+    errors: list[StoryboardContractIssue] = field(default_factory=list)
+    warnings: list[StoryboardContractIssue] = field(default_factory=list)
+    line_count: int = 0
+    scene_count: int = 0
+    total_duration_seconds: int = 0
+    total_estimated_speech_seconds: float = 0.0
+
+
 @dataclass
 class PipelineReport:
     ok: bool
@@ -171,6 +207,7 @@ class PipelineReport:
     output_dir: str
     image_count: int
     storyboard_path: str | None
+    narration_plan_path: str | None
     validation_passed: bool
     target_duration_seconds: int = 30
     scene_count: int = 0
@@ -184,6 +221,11 @@ class PipelineReport:
     storyboard_quality_passed: bool = False
     storyboard_quality_errors: list[dict[str, Any]] = field(default_factory=list)
     storyboard_quality_warnings: list[dict[str, Any]] = field(default_factory=list)
+    tts_contract_passed: bool = False
+    tts_contract_errors: list[dict[str, Any]] = field(default_factory=list)
+    tts_contract_warnings: list[dict[str, Any]] = field(default_factory=list)
+    narration_line_count: int = 0
+    total_estimated_speech_seconds: float = 0.0
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False
