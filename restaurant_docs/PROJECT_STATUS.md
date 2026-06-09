@@ -2058,3 +2058,50 @@ project.json
   - 不生成音频或视频。
   - 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
   - 本轮暂不 commit。
+
+## 第 4 阶段：RunningHub 批量封面 WebUI Prototype
+
+- 调整 WebUI 封面生成交互：
+  - `文案设置` 主按钮改为 `生成视频文案`，只生成本地 prototype 视频文案。
+  - 不再在前台展示标题候选列表，不再让用户选择标题。
+  - 点击 `生成封面` / `重新生成封面` 时，后台本地生成 3 条 `local_static` 标题。
+  - 上传图片少于 3 张时，封面按钮 disabled，并提示至少上传 3 张图片。
+  - 上传图片达到 3 张后，WebUI 随机选择 3 张用户上传图片。
+  - 系统将 3 张图片和 3 条标题一一配对，提交 RunningHub batch。
+  - 成功后展示 3 张封面图，用户可选择其中 1 张，选中项有高亮。
+- 新增 `restaurant_engine/runninghub_cover.py`：
+  - 读取 RunningHub 环境变量配置。
+  - 上传图片、提交任务、轮询结果、下载图片。
+  - 输出 `cover_batch_report.json`。
+  - 缺配置时受控失败，不 fallback 到本地伪结果。
+- 当前边界：
+  - 不调用 DeepSeek。
+  - 不调用 LLM。
+  - 不调用非 RunningHub 外部 API。
+  - 不生成音频或视频。
+  - 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+  - 本轮暂不 commit，等待复核。
+
+## 第 4 阶段：RunningHub Workflow API JSON 校准
+
+- 已只读检查用户 Downloads 中的 RunningHub workflow JSON：
+  - `/Users/feei/Downloads/视频封面设计-全能图片G2图像编辑（RH版）_api.json`
+  - `/Users/feei/Downloads/视频封面设计-全能图片G2图像编辑（RH版）.json`
+- 下载的 workflow JSON 只作为本机参考，不复制进仓库，不提交 Git。
+- 参考 workflow：
+  - URL：`https://www.runninghub.cn/workflow/2064397787445424129`
+  - workflow id：`2064397787445424129`
+- 从 `_api.json` 提取到的非敏感节点映射：
+  - 图片输入：`13.image`
+  - 标题/提示词输入：`3.prompt`
+  - 输出保存：`4.images`
+- `restaurant_engine/runninghub_cover.py` 已按该 workflow 做最小校准：
+  - 标题字段默认改为 `prompt`。
+  - 支持 `RUNNINGHUB_COVER_IMAGE_NODE_FIELD`。
+  - 支持 `RUNNINGHUB_COVER_TITLE_NODE_FIELD`。
+  - 支持 `RUNNINGHUB_COVER_OUTPUT_NODE_ID` / `RUNNINGHUB_COVER_OUTPUT_NODE_FIELD`。
+  - 保留 `RUNNINGHUB_COVER_NODE_INFO_JSON` 作为复杂 node mapping 入口。
+- 当前未执行真实 RunningHub 任务，等待用户后续明确授权。
+- 未调用 DeepSeek、LLM、TTS、音频或视频生成。
+- 未修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+- 本轮暂不 commit。

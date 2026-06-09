@@ -191,3 +191,20 @@ FONT_FALLBACK_USED
 - `blocking`
 
 第 5 阶段不得假设 `cover_image.png` 是 AI 生成图片，也不得把当前基础本地渲染当作最终封面设计系统。
+
+## RunningHub WebUI Prototype 批量封面
+
+第 4 阶段 WebUI 临时验证入口新增 RunningHub 批量封面生成：
+
+- WebUI `生成封面` 不再用 `local_pillow` 结果冒充最终封面。
+- 用户至少上传 3 张图片后，WebUI 随机选择 3 张上传图片。
+- 后台本地生成 3 条 `local_static` 标题。
+- RunningHub provider 提交 3 个任务，生成 3 张封面。
+- 输出 `cover_batch_report.json` 和 3 张 `cover_*.png` 到仓库外临时目录。
+- 缺少 RunningHub 配置时受控提示，不 fallback 到本地 Pillow、DeepSeek、LLM 或其他 AI 服务。
+- RunningHub workflow API JSON 已做本地只读校准：
+  - 参考 workflow id：`2064397787445424129`
+  - 图片输入节点：`13.image`
+  - 标题/提示词节点：`3.prompt`
+  - 输出保存节点：`4.images`
+- 下载的 workflow JSON 只作为本机参考，不复制进仓库，也不提交 Git。

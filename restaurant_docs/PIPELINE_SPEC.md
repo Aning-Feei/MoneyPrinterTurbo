@@ -679,47 +679,33 @@ TTS contract 当前规则：
 当前 WebUI 入口执行路径：
 
 1. 用户输入视频主题，内部写入 `theme_text`。
-2. 用户点击 `生成视频标题/视频文案`。
-3. WebUI 调用 `restaurant_engine.cover_planner.build_title_candidates` 本地生成 3 个标题候选。
-4. WebUI 调用 `restaurant_engine.storyboard_planner.build_mock_storyboard` 本地生成 mock 视频文案。
-5. 标题候选显示在按钮下方，用户选择 `selected_cover_title_id`。
-6. 视频文案显示在标题候选下方。
-7. 用户在中间列 `视频设置` 区域上传 1 张或多张图片。
-8. 用户选择 `selected_cover_image_id` 或选择自动。
-9. WebUI 在仓库外临时目录生成 `project.json`。
-10. WebUI 调用 `restaurant_engine.pipeline.run_pipeline`。
-11. pipeline 输出 `cover_plan.json`、`cover_render_report.json`、`cover_image.png` 和 `pipeline_report.json`。
-
-WebUI 固定使用：
-
-```text
-planner=mock
-image_understanding_provider=mock
-allow_external_api=false
-```
-
-临时 project 使用：
-
-```text
-pipeline_mode=cover_prototype
-```
-
-该模式只用于 WebUI 封面验证入口，允许封面验证在上传 1 张图片时运行。默认视频主流程的图片数量、类别、storyboard、narration 等 contract 不因此改变。
+2. 用户点击 `生成视频文案`。
+3. WebUI 本地生成 prototype 视频文案，不调用 DeepSeek / LLM。
+4. WebUI 不展示标题候选列表，也不提供标题选择控件。
+5. 用户在中间列 `视频设置` 区域上传至少 3 张图片。
+6. 用户点击 `生成封面`。
+7. WebUI 后台本地生成 3 条 `local_static` 标题。
+8. WebUI 随机选择 3 张上传图片。
+9. WebUI 调用 `restaurant_engine.runninghub_cover.generate_runninghub_cover_batch`。
+10. RunningHub provider 提交 3 个封面任务。
+11. RunningHub 返回 3 张封面后，WebUI 展示 3 张封面并允许用户选择其中 1 张。
 
 最新 WebUI 交互修正：
 
-- 标题候选生成已合并进现有左侧 `文案设置` 区域。
-- `文案设置` 中主按钮显示为 `生成视频标题/视频文案`。
-- 餐饮封面 prototype 模式下，点击后走本地安全路径：
-  - 本地生成 3 个 `local_static` 标题候选。
-  - 本地生成 prototype 视频文案。
-  - 不进入原 LLM 文案生成路径。
-  - 不调用 DeepSeek、外部 API 或任何 LLM。
-- 标题候选显示在该按钮下方，默认选择 `title_1`。
+- `文案设置` 中主按钮显示为 `生成视频文案`，只生成本地 prototype 视频文案。
+- WebUI 不展示标题候选列表，也不提供标题选择控件。
+- 标题改为点击 `生成封面` / `重新生成封面` 时后台生成，每批 3 条 `local_static` 标题。
+- 上传图片少于 3 张时，`生成封面` 按钮 disabled，并显示至少上传 3 张图片的提示。
+- 上传图片达到 3 张后，WebUI 随机选择 3 张用户上传图片，和 3 条后台标题一一配对，提交 RunningHub batch。
 - `生成封面` 按钮位于中间列 `视频设置` 区域的 `当前本地图片数量` 下方。
-- 封面验证区不再提供独立主题输入、独立标题/文案生成按钮或独立图片上传入口，只复用文案设置中的 `video_subject` / `selected_cover_title_id` 和视频设置中的本地上传图片。
-- 未上传图片时点击 `生成封面`，WebUI 显示受控提示并且不调用 pipeline。
-- 未生成并选择标题时点击 `生成封面`，WebUI 显示受控提示并且不调用 pipeline。
+- 成功生成后按钮文案变为 `重新生成封面`，再次点击会刷新标题批次、随机图片和 3 张封面。
+- RunningHub batch 结果写入仓库外临时目录的 `cover_batch_report.json`，不写入 `storage/` 或源码目录。
+- RunningHub workflow API JSON 已做本地只读校准：
+  - 参考 workflow id：`2064397787445424129`
+  - 图片输入节点：`13.image`
+  - 标题/提示词节点：`3.prompt`
+  - 输出保存节点：`4.images`
+- 下载的 workflow JSON 不复制进仓库、不提交 Git。
 
 本地标题候选质量修正：
 
@@ -727,14 +713,14 @@ pipeline_mode=cover_prototype
 - 标题候选仍固定输出 3 个。
 - 第 4 阶段已避免 `值得一试`、`聚餐首选`、`发现这家` 等弱模板后缀。
 - 当前本地规则按餐饮品类和场景生成更适合短视频封面的标题。
-- 该逻辑仍不调用 DeepSeek、LLM、视觉模型或任何外部 API。
+- 该逻辑仍不调用 DeepSeek、LLM、视觉模型或任何非 RunningHub 外部 API。
 
 当前入口不做：
 
 - 不调用 DeepSeek。
-- 不调用外部 API。
+- 不调用非 RunningHub 外部 API。
 - 不调用 LLM。
-- 不读取 API Key。
+- 不读取或输出非 RunningHub API Key。
 - 不调用视觉模型。
 - 不使用 AI 图片生成。
 - 不调用 TTS。

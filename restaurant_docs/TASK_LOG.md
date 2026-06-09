@@ -2758,3 +2758,82 @@ restaurant_engine 最小兼容：
 - 未生成音频或视频。
 - 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
 - 本轮暂不 commit。
+
+## 第 4 阶段：RunningHub 批量封面 WebUI 交互调整
+
+任务目标：
+- 将 WebUI 临时封面验证入口从单张本地 Pillow 封面调整为 RunningHub 批量生成 3 张封面。
+- 保持第 4 阶段边界，不进入第 5 阶段，不生成音频或视频。
+
+本轮调整：
+- `文案设置` 区域按钮改为 `生成视频文案`。
+- 点击文案按钮只本地生成 prototype 视频文案，不生成或展示标题候选。
+- 前台移除标题候选 radio / 选择展示。
+- 点击 `生成封面` / `重新生成封面` 时，后台本地生成 3 条 `local_static` 标题。
+- 封面生成最低图片数量为 3 张。
+- 图片数量少于 3 张时按钮 disabled，并显示 `至少上传 3 张图片后可生成封面。`
+- 图片数量达到 3 张后按钮可点击。
+- 点击生成时随机选择 3 张用户上传图片，与 3 条标题一一配对。
+- 新增 RunningHub provider：
+  - 上传图片。
+  - 提交 3 个 RunningHub workflow task。
+  - 等待任务结果。
+  - 下载 3 张封面图。
+  - 写入 `cover_batch_report.json`。
+- WebUI 展示 3 张封面图，用户可以点击 `选择此封面`。
+- 选中封面高亮显示，并写入：
+  - `selected_cover_variant_id`
+  - `selected_cover_image_path`
+  - `selected_cover_title_text`
+  - `selected_cover_source_image_path`
+- 成功生成后按钮变为 `重新生成封面`。
+
+安全边界：
+- 未调用 DeepSeek。
+- 未调用 LLM。
+- 未调用非 RunningHub 外部 API。
+- 未调用 TTS。
+- 未生成音频或视频。
+- 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
+- RunningHub 缺配置时受控失败，不 fallback 到本地 Pillow 假结果。
+- 本轮暂不 commit。
+
+## 第 4 阶段：RunningHub Workflow API JSON 校准
+
+任务目标：
+- 读取用户 Downloads 中的 RunningHub workflow API JSON，校准真实接入前的 provider 字段。
+- 不执行真实 RunningHub 任务。
+- 不调用 DeepSeek、LLM、TTS、音频或视频生成。
+- 不提交。
+
+只读参考文件：
+- `/Users/feei/Downloads/视频封面设计-全能图片G2图像编辑（RH版）_api.json`
+- `/Users/feei/Downloads/视频封面设计-全能图片G2图像编辑（RH版）.json`
+
+校准结果：
+- 参考 workflow URL：`https://www.runninghub.cn/workflow/2064397787445424129`
+- 参考 workflow id：`2064397787445424129`
+- `_api.json` 为 ComfyUI API graph，未包含 REST endpoint / task polling / result download 的完整接口模板。
+- 可确认的非敏感节点映射：
+  - 图片输入：`13.image`
+  - 标题/提示词输入：`3.prompt`
+  - 输出保存：`4.images`
+- provider 继续通过环境变量配置 workflow 和 node mapping，不硬编码为唯一 workflow。
+- 支持 `RUNNINGHUB_COVER_NODE_INFO_JSON` 传入复杂 `nodeInfoList` 模板。
+
+代码调整：
+- `restaurant_engine/runninghub_cover.py`：
+  - 标题字段默认从 `text` 校准为 `prompt`。
+  - 新增 image/title/output 字段名配置。
+  - 增强上传结果引用解析。
+  - 增强输出图片 URL 递归解析。
+  - `cover_batch_report.json` 增加非敏感 workflow/node mapping 摘要。
+
+安全边界：
+- 未复制 workflow JSON 到仓库。
+- 未输出 API Key。
+- 未执行真实 RunningHub 外部 API 调用。
+- 未调用 DeepSeek / LLM / TTS。
+- 未生成音频或视频。
+- 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
+- 本轮暂不 commit。
