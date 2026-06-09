@@ -24,6 +24,7 @@
 ```text
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/image_understanding.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/rule_engine_report.json
+/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/cover_plan.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/narration_plan.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json
@@ -118,6 +119,85 @@ pipeline 在 `image_understanding.json` 生成后，会执行本地 deterministi
 
 - `restaurant_docs/RULE_ENGINE_SPEC.md`
 - `restaurant_docs/STAGE_3_ACCEPTANCE.md`
+
+## Cover Plan Contract
+
+第 4 阶段开始后，pipeline 在 `rule_engine_report.json` 之后、`storyboard.json` 之前生成 `cover_plan.json`。当前 cover planner 只描述封面方案，不渲染真实封面图。
+
+当前封面方案边界：
+
+- `planner=local_static`。
+- `external_api_called=false`。
+- `render_status=not_rendered`。
+- `cover_image_path=null`。
+- 只消费 `project.json`、`image_understanding` 和 `rule_engine_report`。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不读取 API Key。
+- 不读取图片像素。
+- 不重新根据文件名分类。
+- 不生成 PNG / JPG / JPEG / WebP 封面文件。
+
+`project.json` 可选输入字段：
+
+- `theme_text`：用户输入主题文案，用于本地静态生成 3 个标题候选。
+- `selected_cover_title_id`：用户选择的标题 ID，优先级最高。
+- `selected_cover_title`：用户选择的标题文本，仅在匹配候选标题时生效。
+- `selected_cover_image_id`：用户指定封面图片 ID。
+
+标题候选：
+
+- 当前 `title_provider=local_static`。
+- 固定生成 3 个候选：`title_1`、`title_2`、`title_3`。
+- 如果用户没有有效选择，默认选择 `title_1`。
+- 无效选择不会阻断 pipeline，会记录 `INVALID_TITLE_SELECTION` warning。
+- `cover_copy.title` 必须等于 `selected_title.text`。
+
+封面图候选选择优先级：
+
+1. 有效的 `selected_cover_image_id`。
+2. `rule_engine_report.storyboard_hints.preferred_opening_image_id`。
+3. `rule_engine_report.asset_groups.hero_candidates`。
+4. `rule_engine_report.asset_groups.dish_candidates`。
+5. `rule_engine_report.asset_groups.interior_candidates`。
+6. `rule_engine_report.asset_groups.fallback_candidates`。
+7. `image_understanding.images` 第一张。
+
+`cover_plan.json` 顶层字段：
+
+- `version`
+- `planner`
+- `external_api_called`
+- `render_status`
+- `cover_image_path`
+- `source_contracts`
+- `title_generation`
+- `title_candidates`
+- `selected_title`
+- `selected_assets`
+- `cover_copy`
+- `layout`
+- `quality_flags`
+- `warnings`
+- `blocking`
+
+`pipeline_report.json` 记录：
+
+- `cover_plan_path`
+- `cover_planner`
+- `cover_external_api_called`
+- `cover_render_status`
+- `cover_image_path`
+- `cover_selected_image_id`
+- `cover_selected_title`
+- `cover_title_candidates_count`
+- `cover_title_user_selected`
+- `cover_requires_human_review`
+- `cover_blocking`
+
+详细字段和规则见：
+
+- `restaurant_docs/COVER_PLAN_SPEC.md`
 
 ## Mock Storyboard 规则
 

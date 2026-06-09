@@ -2336,3 +2336,79 @@
   - 不生成音频。
   - 不生成视频。
   - 未进入第 4 阶段。
+
+## 第 4 阶段：标题候选与 Cover Plan Contract 骨架
+
+任务目标：
+- 启动第 4 阶段封面生成模块。
+- 支持用户主题文案 `theme_text`。
+- 本地静态生成 3 个标题候选。
+- 支持用户通过 `selected_cover_title_id` / `selected_cover_title` 选择标题。
+- 将用户选择标题作为 `cover_copy.title`。
+- 从用户上传图片 contract 中选择一张封面候选图。
+- 输出 `cover_plan.json`。
+- 将 cover 摘要写入 `pipeline_report.json`。
+
+实现内容：
+- 新增 `restaurant_engine/cover_planner.py`。
+- 新增 cover plan dataclass：
+  - `CoverSourceContracts`
+  - `TitleGeneration`
+  - `TitleCandidate`
+  - `SelectedTitle`
+  - `CoverSelectedAssets`
+  - `CoverCopy`
+  - `CoverLayout`
+  - `CoverQualityFlags`
+  - `CoverWarning`
+  - `CoverPlan`
+- pipeline 新增步骤：
+  - `build_cover_plan`
+  - `write_cover_plan`
+- pipeline 输出新增：
+  - `cover_plan.json`
+- CLI 摘要新增 cover 字段：
+  - `cover_plan`
+  - `cover_planner`
+  - `cover_render_status`
+  - `cover_selected_image_id`
+  - `cover_selected_title`
+  - `cover_title_candidates_count`
+  - `cover_title_user_selected`
+  - `cover_requires_human_review`
+  - `cover_blocking`
+- 新增文档：
+  - `restaurant_docs/COVER_PLAN_SPEC.md`
+- 更新文档：
+  - `restaurant_docs/PIPELINE_SPEC.md`
+  - `restaurant_docs/PROJECT_STATUS.md`
+
+当前固定 contract：
+- `planner=local_static`
+- `external_api_called=false`
+- `render_status=not_rendered`
+- `cover_image_path=null`
+- `title_provider=local_static`
+- `quality_flags.requires_human_review=true`
+
+安全边界：
+- 本轮暂不 commit，等待用户确认后再提交。
+- 不生成真实封面图片。
+- 不输出 PNG / JPG / JPEG / WebP 封面文件。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不读取 API Key。
+- 不读取图片像素。
+- 不重新根据文件名分类。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
+
+待验证：
+- 默认 mock provider + 用户选择 `title_2`。
+- 默认 mock provider + 未选择标题。
+- 显式 mock provider。
+- `filename_fallback` provider。
+- `vision` 未授权受控失败。
+- `vision --allow-external-api` 当前未实现受控失败。

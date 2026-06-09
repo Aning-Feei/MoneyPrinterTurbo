@@ -1750,3 +1750,62 @@ project.json
   - 不调用 TTS。
   - 不生成音频或视频。
   - 未修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
+
+## 第 4 阶段启动：封面方案 Contract 骨架
+
+- 第 4 阶段“封面生成模块”已开始。
+- 本轮只实现标题候选、用户选择标题和 `cover_plan.json` contract 骨架。
+- 新增本地静态 cover planner：
+  - `planner=local_static`
+  - `external_api_called=false`
+  - `render_status=not_rendered`
+  - `cover_image_path=null`
+- 新增 `restaurant_engine/cover_planner.py`。
+- 新增 `restaurant_docs/COVER_PLAN_SPEC.md`。
+- pipeline 顺序调整为：
+  - load project
+  - validator
+  - scan images
+  - image_understanding
+  - rule_engine
+  - cover_plan
+  - storyboard
+  - narration_plan
+  - pipeline_report
+- 支持 `project.json` 可选字段：
+  - `theme_text`
+  - `selected_cover_title_id`
+  - `selected_cover_title`
+  - `selected_cover_image_id`
+- 当前标题生成：
+  - 本地静态生成 3 个标题候选。
+  - 用户选择标题作为 `selected_title`。
+  - `cover_copy.title` 必须等于 `selected_title.text`。
+- 当前封面图片选择：
+  - 优先使用用户指定图片。
+  - 否则使用 rule engine 的 opening / hero / dish / interior / fallback 候选。
+  - 最后 fallback 到上传图片第一张。
+- `pipeline_report.json` 新增 cover 摘要字段：
+  - `cover_plan_path`
+  - `cover_planner`
+  - `cover_external_api_called`
+  - `cover_render_status`
+  - `cover_image_path`
+  - `cover_selected_image_id`
+  - `cover_selected_title`
+  - `cover_title_candidates_count`
+  - `cover_title_user_selected`
+  - `cover_requires_human_review`
+  - `cover_blocking`
+- 当前边界：
+  - 本轮暂不 commit，等待用户确认后再提交。
+  - 不生成真实封面图片。
+  - 不输出 PNG / JPG / JPEG / WebP 封面文件。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不读取 API Key。
+  - 不读取图片像素。
+  - 不重新根据文件名分类。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。

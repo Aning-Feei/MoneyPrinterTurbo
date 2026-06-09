@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import (
+    CoverPlan,
     ImageFile,
     ImageUnderstandingReport,
     NarrationPlan,
@@ -14,6 +15,7 @@ from .models import (
     PipelineStep,
     RuleEngineReport,
 )
+from .cover_planner import build_cover_plan
 from .image_understanding import (
     SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS,
     build_image_understanding,
@@ -42,6 +44,7 @@ from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 STORYBOARD_FILE_NAME = "storyboard.json"
 IMAGE_UNDERSTANDING_FILE_NAME = "image_understanding.json"
 RULE_ENGINE_REPORT_FILE_NAME = "rule_engine_report.json"
+COVER_PLAN_FILE_NAME = "cover_plan.json"
 NARRATION_PLAN_FILE_NAME = "narration_plan.json"
 PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
 
@@ -68,6 +71,8 @@ def run_pipeline(
     image_understanding_path: str | None = None
     rule_engine_report: RuleEngineReport | None = None
     rule_engine_report_path: str | None = None
+    cover_plan: CoverPlan | None = None
+    cover_plan_path: str | None = None
     storyboard_path: str | None = None
     narration_plan_path: str | None = None
     validation_passed = False
@@ -442,6 +447,70 @@ def run_pipeline(
             )
         )
 
+    if image_understanding is not None and rule_engine_report is not None:
+        try:
+            cover_plan = build_cover_plan(
+                project=project_config,
+                image_understanding=image_understanding,
+                rule_engine_report=rule_engine_report,
+            )
+            steps.append(
+                PipelineStep(
+                    name="build_cover_plan",
+                    status="passed",
+                    message=(
+                        "Built local cover plan with "
+                        f"{len(cover_plan.title_candidates)} title candidates."
+                    ),
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("build_cover_plan_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="build_cover_plan",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="build_cover_plan",
+                status="skipped",
+                message="Skipped because image understanding or rule engine did not pass.",
+            )
+        )
+
+    if cover_plan is not None:
+        try:
+            cover_plan_file = write_cover_plan(output_dir, cover_plan)
+            cover_plan_path = str(cover_plan_file)
+            steps.append(
+                PipelineStep(
+                    name="write_cover_plan",
+                    status="passed",
+                    message=f"Wrote cover plan: {cover_plan_file}",
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("write_cover_plan_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="write_cover_plan",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="write_cover_plan",
+                status="skipped",
+                message="Skipped because no cover plan was built.",
+            )
+        )
+
     can_plan_storyboard = can_plan_storyboard and not _has_failed_step(
         steps,
         {
@@ -450,6 +519,8 @@ def run_pipeline(
             "write_image_understanding",
             "build_rule_engine_report",
             "write_rule_engine_report",
+            "build_cover_plan",
+            "write_cover_plan",
         },
     )
 
@@ -771,6 +842,7 @@ def run_pipeline(
         image_understanding_path=image_understanding_path,
         image_understanding_provider=image_provider_name,
         rule_engine_report_path=rule_engine_report_path,
+        cover_plan_path=cover_plan_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
@@ -779,6 +851,7 @@ def run_pipeline(
         external_api_called=external_api_called,
         image_understanding=image_understanding,
         rule_engine_report=rule_engine_report,
+        cover_plan=cover_plan,
         storyboard=storyboard,
         storyboard_contract_report=storyboard_contract_report,
         storyboard_quality_report=storyboard_quality_report,
@@ -806,6 +879,7 @@ def run_pipeline(
             image_understanding_path=image_understanding_path,
             image_understanding_provider=image_provider_name,
             rule_engine_report_path=rule_engine_report_path,
+            cover_plan_path=cover_plan_path,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
@@ -814,6 +888,7 @@ def run_pipeline(
             external_api_called=external_api_called,
             image_understanding=image_understanding,
             rule_engine_report=rule_engine_report,
+            cover_plan=cover_plan,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
@@ -841,6 +916,7 @@ def run_pipeline(
             image_understanding_path=image_understanding_path,
             image_understanding_provider=image_provider_name,
             rule_engine_report_path=rule_engine_report_path,
+            cover_plan_path=cover_plan_path,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
@@ -849,6 +925,7 @@ def run_pipeline(
             external_api_called=external_api_called,
             image_understanding=image_understanding,
             rule_engine_report=rule_engine_report,
+            cover_plan=cover_plan,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
@@ -937,6 +1014,12 @@ def write_rule_engine_report(
     return output_path
 
 
+def write_cover_plan(output_dir: str | Path, cover_plan: CoverPlan) -> Path:
+    output_path = Path(output_dir).expanduser().resolve() / COVER_PLAN_FILE_NAME
+    _write_json(output_path, asdict(cover_plan))
+    return output_path
+
+
 def write_pipeline_report(output_dir: str | Path, report: PipelineReport) -> Path:
     report_path = Path(output_dir).expanduser().resolve() / PIPELINE_REPORT_FILE_NAME
     _write_json(report_path, pipeline_report_to_dict(report))
@@ -968,6 +1051,7 @@ def _build_report(
     image_understanding_path: str | None,
     image_understanding_provider: str,
     rule_engine_report_path: str | None,
+    cover_plan_path: str | None,
     storyboard_path: str | None,
     narration_plan_path: str | None,
     validation_passed: bool,
@@ -976,6 +1060,7 @@ def _build_report(
     external_api_called: bool,
     image_understanding,
     rule_engine_report,
+    cover_plan,
     storyboard,
     storyboard_contract_report,
     storyboard_quality_report,
@@ -1004,6 +1089,7 @@ def _build_report(
             else ""
         ),
         rule_engine_report_path=rule_engine_report_path,
+        cover_plan_path=cover_plan_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
@@ -1110,6 +1196,40 @@ def _build_report(
         rule_engine_version=(
             rule_engine_report.version if rule_engine_report is not None else ""
         ),
+        cover_planner=cover_plan.planner if cover_plan is not None else "",
+        cover_external_api_called=(
+            cover_plan.external_api_called if cover_plan is not None else False
+        ),
+        cover_render_status=(
+            cover_plan.render_status if cover_plan is not None else ""
+        ),
+        cover_image_path=(
+            cover_plan.cover_image_path if cover_plan is not None else None
+        ),
+        cover_selected_image_id=(
+            cover_plan.selected_assets.primary_image_id
+            if cover_plan is not None and cover_plan.selected_assets is not None
+            else None
+        ),
+        cover_selected_title=(
+            cover_plan.selected_title.text
+            if cover_plan is not None and cover_plan.selected_title is not None
+            else ""
+        ),
+        cover_title_candidates_count=(
+            len(cover_plan.title_candidates) if cover_plan is not None else 0
+        ),
+        cover_title_user_selected=(
+            cover_plan.selected_title.user_selected
+            if cover_plan is not None and cover_plan.selected_title is not None
+            else False
+        ),
+        cover_requires_human_review=(
+            cover_plan.quality_flags.requires_human_review
+            if cover_plan is not None and cover_plan.quality_flags is not None
+            else False
+        ),
+        cover_blocking=cover_plan.blocking if cover_plan is not None else False,
         planner=planner,
         external_api_allowed=external_api_allowed,
         external_api_called=external_api_called,

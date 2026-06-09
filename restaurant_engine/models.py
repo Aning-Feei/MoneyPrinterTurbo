@@ -278,6 +278,98 @@ class RuleEngineReport:
     blocking: bool = False
 
 
+@dataclass(frozen=True)
+class CoverSourceContracts:
+    image_understanding_provider: str
+    image_understanding_analysis_source: str
+    rule_engine_version: str
+    rule_engine: str
+
+
+@dataclass(frozen=True)
+class TitleGeneration:
+    theme_text: str
+    title_provider: str
+    external_api_called: bool
+
+
+@dataclass(frozen=True)
+class TitleCandidate:
+    title_id: str
+    text: str
+    source: str
+    selected: bool = False
+
+
+@dataclass(frozen=True)
+class SelectedTitle:
+    title_id: str
+    text: str
+    user_selected: bool
+    selection_source: str
+
+
+@dataclass(frozen=True)
+class CoverSelectedAssets:
+    primary_image_id: int | None
+    primary_image_path: str | None
+    primary_asset_group: str
+    selection_reason: str
+    user_selected_image: bool
+    fallback_used: bool
+
+
+@dataclass(frozen=True)
+class CoverCopy:
+    title: str
+    subtitle: str
+    cta: str
+    language: str
+    copy_source: str
+
+
+@dataclass(frozen=True)
+class CoverLayout:
+    format: str
+    safe_area: dict[str, float]
+    text_zones: dict[str, str]
+
+
+@dataclass(frozen=True)
+class CoverQualityFlags:
+    requires_human_review: bool
+    content_based_understanding: bool
+    uses_filename_fallback: bool
+    has_primary_image: bool
+    has_user_selected_title: bool
+
+
+@dataclass(frozen=True)
+class CoverWarning:
+    code: str
+    severity: str
+    message: str
+
+
+@dataclass
+class CoverPlan:
+    version: str
+    planner: str
+    external_api_called: bool
+    render_status: str
+    cover_image_path: str | None
+    source_contracts: CoverSourceContracts
+    title_generation: TitleGeneration
+    title_candidates: list[TitleCandidate] = field(default_factory=list)
+    selected_title: SelectedTitle | None = None
+    selected_assets: CoverSelectedAssets | None = None
+    cover_copy: CoverCopy | None = None
+    layout: CoverLayout | None = None
+    quality_flags: CoverQualityFlags | None = None
+    warnings: list[CoverWarning] = field(default_factory=list)
+    blocking: bool = False
+
+
 @dataclass
 class PipelineReport:
     ok: bool
@@ -290,6 +382,7 @@ class PipelineReport:
     image_understanding_provider: str
     image_understanding_analysis_source: str
     rule_engine_report_path: str | None
+    cover_plan_path: str | None
     storyboard_path: str | None
     narration_plan_path: str | None
     validation_passed: bool
@@ -318,6 +411,16 @@ class PipelineReport:
     rule_engine_findings_count: int = 0
     rule_engine_blocking: bool = False
     rule_engine_version: str = ""
+    cover_planner: str = ""
+    cover_external_api_called: bool = False
+    cover_render_status: str = ""
+    cover_image_path: str | None = None
+    cover_selected_image_id: int | None = None
+    cover_selected_title: str = ""
+    cover_title_candidates_count: int = 0
+    cover_title_user_selected: bool = False
+    cover_requires_human_review: bool = False
+    cover_blocking: bool = False
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False
