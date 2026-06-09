@@ -1892,63 +1892,52 @@ with left_panel:
         if st.button(
             tr("Generate Video Script and Keywords"), key="auto_generate_script"
         ):
-            with st.spinner(tr("Generating Video Script and Keywords")):
-                cover_title_candidates = generate_cover_title_candidates_for_subject(
-                    params.video_subject, reset_selection=True
-                )
-                cover_video_script = build_cover_prototype_video_script(
-                    params.video_subject, cover_title_candidates
-                )
-                st.session_state["restaurant_cover_video_script"] = cover_video_script
-                script_prompt = params.video_script_prompt
-                if getattr(params, "restaurant_mode", False):
-                    script_prompt = build_restaurant_script_prompt(params)
-                script = llm.generate_script(
-                    video_subject=params.video_subject,
-                    language=params.video_language,
-                    paragraph_number=params.paragraph_number,
-                    video_script_prompt=script_prompt,
-                    custom_system_prompt=params.custom_system_prompt,
-                )
-                if "Error: " in script:
-                    st.error(tr(script))
-                else:
-                    if getattr(params, "restaurant_mode", False):
-                        script, final_cjk_count, revised = revise_restaurant_script_if_needed(
-                            script, params
+            if getattr(params, "restaurant_mode", False):
+                with st.spinner("正在本地生成视频标题和 prototype 视频文案..."):
+                    try:
+                        cover_title_candidates = generate_cover_title_candidates_for_subject(
+                            params.video_subject, reset_selection=True
                         )
-                        min_chars, max_chars = get_restaurant_script_char_range(
-                            params.target_duration_seconds
+                        cover_video_script = build_cover_prototype_video_script(
+                            params.video_subject, cover_title_candidates
                         )
-                        script, adjustment_note = normalize_restaurant_script_length(
-                            script, min_chars, max_chars
-                        )
-                        script, was_clamped = clamp_script_to_max_cjk_chars(
-                            script, max_chars
-                        )
-                        final_cjk_count = count_cjk_chars(script)
-                        if adjustment_note == "local_extended":
-                            st.info("已按目标时长自动扩写文案。")
-                        elif adjustment_note == "local_trimmed":
-                            st.info("已按目标时长自动压缩文案。")
-                        if was_clamped:
-                            st.info("已按目标时长自动截断文案。")
-                        st.caption(f"AI 文案中文字符数：{final_cjk_count}")
-                        if final_cjk_count < min_chars or final_cjk_count > max_chars:
-                            st.error("AI 文案仍未完全落入推荐范围，请手动微调后再生成。")
-                    st.session_state["video_script"] = script
-                    st.session_state["video_script_input"] = script
-                    st.session_state["restaurant_cover_video_script"] = script
-                    terms = llm.generate_terms(params.video_subject, script)
-                    if "Error: " in terms:
-                        st.warning("视频文案已生成，但关键词生成失败；将使用本地默认关键词继续。")
-                        if not st.session_state.get("video_terms"):
-                            st.session_state["video_terms"] = build_local_restaurant_video_terms(
-                                params.video_subject
-                            )
+                    except Exception as e:
+                        st.error(f"本地生成标题和文案失败：{e}")
                     else:
-                        st.session_state["video_terms"] = ", ".join(terms)
-                    st.success("视频标题和 AI 文案已生成，并已按目标时长校准。")
+                        st.session_state["restaurant_cover_video_script"] = cover_video_script
+                        st.session_state["video_script"] = cover_video_script
+                        st.session_state["video_script_input"] = cover_video_script
+                        st.session_state["video_terms"] = build_local_restaurant_video_terms(
+                            params.video_subject
+                        )
+                        if not params.video_subject:
+                            st.info("未输入视频主题，已使用默认餐饮主题生成。")
+                        st.success("已本地生成视频标题和 prototype 视频文案。")
+            else:
+                with st.spinner(tr("Generating Video Script and Keywords")):
+                    script = llm.generate_script(
+                        video_subject=params.video_subject,
+                        language=params.video_language,
+                        paragraph_number=params.paragraph_number,
+                        video_script_prompt=params.video_script_prompt,
+                        custom_system_prompt=params.custom_system_prompt,
+                    )
+                    if "Error: " in script:
+                        st.error(tr(script))
+                    else:
+                        st.session_state["video_script"] = script
+                        st.session_state["video_script_input"] = script
+                        st.session_state["restaurant_cover_video_script"] = script
+                        terms = llm.generate_terms(params.video_subject, script)
+                        if "Error: " in terms:
+                            st.warning("视频文案已生成，但关键词生成失败；将使用本地默认关键词继续。")
+                            if not st.session_state.get("video_terms"):
+                                st.session_state["video_terms"] = build_local_restaurant_video_terms(
+                                    params.video_subject
+                                )
+                        else:
+                            st.session_state["video_terms"] = ", ".join(terms)
+                        st.success("视频标题和 AI 文案已生成，并已按目标时长校准。")
         render_cover_title_candidates_selector()
         if getattr(params, "restaurant_mode", False):
             if st.session_state.get("video_script_input", "") != st.session_state.get(

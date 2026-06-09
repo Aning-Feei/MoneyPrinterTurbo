@@ -2037,3 +2037,24 @@ project.json
   - `image_understanding_provider=mock`
   - `allow_external_api=false`
 - 本轮只调整 WebUI 展示与本地封面入口，不调用 DeepSeek、不调用外部 API、不生成音频或视频、不修改 MoneyPrinterTurbo 视频生成核心。
+
+## 第 4 阶段：WebUI 标题/文案按钮本地安全路径
+
+- 修正文案设置区 `生成视频标题/视频文案` 按钮的餐饮封面 prototype 点击逻辑。
+- 点击后改为本地安全路径：
+  - 读取当前视频主题。
+  - 调用 `restaurant_engine.cover_planner.build_title_candidates` 生成 3 个标题候选。
+  - 标题候选固定为 `title_1` / `title_2` / `title_3`，`source=local_static`。
+  - 默认选中 `title_1`，用户仍可切换 `title_2` / `title_3`。
+  - 本地生成 prototype 视频文案，并写入现有 `视频文案` 输入框。
+- 餐饮封面 prototype 下不再进入原 LLM 文案生成路径，也不调用关键词 API。
+- prototype 视频文案只用于第 4 阶段 WebUI 临时验证入口，不是第 5 阶段正式文案系统。
+- 封面生成链路保持不变，仍读取当前 `restaurant_cover_selected_title_id`。
+- 安全边界：
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 LLM。
+  - 不读取 API Key。
+  - 不生成音频或视频。
+  - 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+  - 本轮暂不 commit。

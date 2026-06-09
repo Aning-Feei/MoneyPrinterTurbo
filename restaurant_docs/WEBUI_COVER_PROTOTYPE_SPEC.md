@@ -99,6 +99,12 @@ WebUI 临时入口会生成 `pipeline_mode=cover_prototype` 的临时 project：
 
 - 主按钮位于现有左侧 `文案设置` 区域，显示为 `生成视频标题/视频文案`。
 - 点击主按钮后，按钮下方显示 3 个标题候选，视频文案写入现有 `视频文案` 输入框。
+- 在餐饮封面 prototype 流程中，该按钮走本地安全路径：
+  - 调用 `restaurant_engine.cover_planner.build_title_candidates` 生成 3 个 `local_static` 标题候选。
+  - 复用本地 mock storyboard 能力生成 prototype 视频文案。
+  - 不进入原 LLM 文案生成路径。
+  - 不调用 DeepSeek、外部 API 或任何 LLM。
+- prototype 视频文案只用于第 4 阶段 WebUI 临时验证入口，不是第 5 阶段正式文案系统。
 - 不再要求用户单独点击 `生成标题候选`。
 - 封面验证入口位于中间列 `视频设置` 区域的 `当前本地图片数量` 下方，按钮显示为 `生成封面`。
 - 封面验证区不再显示独立主题输入、独立标题/文案生成按钮或独立图片上传入口。

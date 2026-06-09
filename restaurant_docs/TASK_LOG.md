@@ -2723,3 +2723,38 @@ restaurant_engine 最小兼容：
 - 不生成音频或视频。
 - 不修改 `restaurant_engine`、`app/`、`config.toml`、`storage/`、`resource/`。
 - 本轮暂不 commit，等待浏览器确认和提交前复核。
+
+## 第 4 阶段：WebUI 标题/文案按钮本地安全路径修正
+
+任务目标：
+- 修正 `文案设置` 区域 `生成视频标题/视频文案` 按钮在餐饮封面 prototype 中仍进入原 LLM 文案生成逻辑的问题。
+- 形成第 4 阶段 WebUI 临时验证入口的安全闭环。
+
+本轮调整：
+- 餐饮封面 prototype 模式下，点击 `生成视频标题/视频文案` 改为本地安全逻辑。
+- 本地读取 `视频主题`，调用 `restaurant_engine.cover_planner.build_title_candidates` 生成 3 个标题候选。
+- 标题候选保持：
+  - `title_1`
+  - `title_2`
+  - `title_3`
+  - `source=local_static`
+- 默认选择 `title_1`，用户仍可切换 `title_2` / `title_3`。
+- 本地生成 prototype 视频文案，并写入现有 `视频文案` 输入框。
+- `video_terms` 使用本地默认关键词兜底，不调用关键词 API。
+- 非餐厅通用路径保留原按钮逻辑，避免扩大影响范围。
+
+封面链路确认：
+- `生成封面` 继续读取 `restaurant_cover_selected_title_id`。
+- 未生成标题时点击 `生成封面` 仍应受控提示，不调用 pipeline。
+- 未上传图片时点击 `生成封面` 仍应受控提示，不调用 pipeline。
+- 用户选择 `title_2` 后生成封面时，`cover_plan.selected_title.title_id`、`cover_copy.title` 和 `cover_render_report.title_text` 应与 `title_2` 一致。
+
+安全边界：
+- 未调用 DeepSeek。
+- 未调用任何外部 API。
+- 未调用 LLM。
+- 未读取或输出 API Key。
+- 未调用 TTS。
+- 未生成音频或视频。
+- 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
+- 本轮暂不 commit。
