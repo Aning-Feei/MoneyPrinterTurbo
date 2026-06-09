@@ -2147,3 +2147,48 @@
   - 本轮不生成音频。
   - 本轮不生成视频。
   - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。
+
+## DeepSeek narration plan / TTS contract 真实复测记录
+
+- 输入 project.json：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json`
+- 执行命令：
+  - `.venv/bin/python -m restaurant_engine.pipeline_project --project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json --planner deepseek --allow-external-api`
+- 输出文件：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json`
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json`
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/narration_plan.json`
+- 测试结果：
+  - `ok=true`
+  - `planner=deepseek`
+  - `external_api_allowed=true`
+  - `external_api_called=true`
+  - `storyboard_contract_passed=true`
+  - `storyboard_quality_passed=true`
+  - `tts_contract_passed=true`
+  - `storyboard_quality_errors=0`
+  - `tts_contract_errors=0`
+  - `storyboard_quality_warnings=4`
+  - `tts_contract_warnings=5`
+  - `target_duration_seconds=30`
+  - `scene_durations=[4,4,3,4,4,3,4,4]`
+  - `duration_sum=30`
+  - `narration_line_count=8`
+  - `estimated_total_tts_seconds=32.0`
+  - `total_cjk_chars=128`
+  - `image_count=8`
+  - `scene_count=8`
+  - scene 顺序正确。
+  - narration line 顺序正确。
+- 安全检查：
+  - 未发现 `sk-` / `api_key` / `Authorization` / `Bearer` 写入输出文件。
+  - 仓库内未误生成 report/storyboard/narration_plan。
+  - 未生成音频。
+  - 未生成视频。
+  - 未修改代码。
+- 非阻塞问题：
+  - 系统 `python3` 缺少项目依赖，使用 `.venv/bin/python` 执行。
+  - TTS warning 为估算时长提醒，不阻断 pipeline。
+  - 估算朗读总时长为 32.0 秒，后续真实 TTS 阶段需校准。
+- 结论：
+  - DeepSeek narration plan / TTS contract 真实复测通过。

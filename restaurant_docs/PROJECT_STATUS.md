@@ -1614,3 +1614,34 @@ project.json
   - 未修改 WebUI。
   - 未修改 `app/`。
   - 未修改 `config.toml`。
+
+## 第 2 阶段验证：DeepSeek Narration Plan / TTS Contract 真实复测通过
+
+- 第 2 阶段 DeepSeek narration plan / TTS contract 真实复测已通过。
+- 真实 DeepSeek storyboard 同时通过：
+  - structure contract
+  - quality contract
+  - duration alignment
+  - `narration_plan` 生成
+  - TTS contract
+- 复测结果摘要：
+  - `pipeline_report.ok=true`
+  - `planner=deepseek`
+  - `external_api_called=true`
+  - `storyboard_contract_passed=true`
+  - `storyboard_quality_passed=true`
+  - `tts_contract_passed=true`
+  - `storyboard_quality_errors=0`
+  - `tts_errors=0`
+  - `target_duration_seconds=30`
+  - `scene_durations=[4,4,3,4,4,3,4,4]`
+  - `narration_line_count=8`
+  - `estimated_total_tts_seconds=32.0`
+  - `total_cjk_chars=128`
+- 安全与边界：
+  - 未生成音频。
+  - 未生成视频。
+  - 未修改代码。
+  - 未发现 API Key 写入 report/storyboard/narration_plan。
+  - 当前阻塞问题：无。
+  - 当前非阻塞问题：估算朗读时长略超过目标，后续真实 TTS 阶段需要做音频时长校准。

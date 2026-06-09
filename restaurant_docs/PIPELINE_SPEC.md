@@ -375,3 +375,30 @@ TTS contract 当前规则：
 - 不调用任何外部 API。
 - 不生成视频。
 - 不修改 WebUI、`app/` 或 `config.toml`。
+
+## DeepSeek Narration Plan / TTS Contract 真实复测
+
+- DeepSeek narration plan / TTS contract 真实复测已通过。
+- 当前 DeepSeek planner 输出在真实 API 调用后可通过：
+  - storyboard structure contract
+  - storyboard quality contract
+  - duration alignment
+  - `narration_plan` 生成
+  - TTS contract
+- TTS contract warning 不阻断 pipeline。
+- TTS contract error 才阻断 pipeline。
+- 当前验证样例：
+  - `target_duration_seconds=30`
+  - `image_count=8`
+  - `scene_durations=[4,4,3,4,4,3,4,4]`
+  - `total_duration_seconds=30`
+  - `narration_line_count=8`
+  - `estimated_total_tts_seconds=32.0`
+  - `tts_errors=0`
+  - `tts_warnings=5`
+- 当前仍不调用真实 TTS、不生成音频、不生成视频。
+- 后续可进入：
+  - 真实 TTS 接入设计
+  - audio duration 校准
+  - per-scene audio 输出 contract
+  - 图生视频适配层设计
