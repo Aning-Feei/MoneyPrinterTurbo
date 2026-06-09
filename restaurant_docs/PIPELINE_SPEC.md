@@ -28,17 +28,19 @@
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json
 ```
 
-## Mock Image Understanding
+## Image Understanding Provider
 
-pipeline 在 validator 通过并完成本地图片扫描后，会先生成本地 mock 版 `image_understanding.json`，再进入 storyboard planning。
+pipeline 在 validator 通过并完成本地图片扫描后，会先生成 `image_understanding.json`，再进入 storyboard planning。
 
-当前阶段的 image understanding 只基于文件名规则：
+第 3 阶段明确：正式产品的图片理解必须基于图片内容，不能依赖文件名。手机上传图片常见文件名如 `IMG_xxx`、微信图片等，通常没有类别语义。
 
-- 不调用视觉模型。
-- 不调用 OCR。
-- 不调用 DeepSeek。
-- 不调用任何外部 API。
-- 不读取图片像素内容。
+当前 provider：
+
+- `mock`：默认 provider，只生成开发占位，不读取图片内容，也不使用文件名语义。
+- `filename_fallback`：显式 fallback provider，只用于开发兜底，不作为正式判断逻辑。
+- `vision`：未来真实视觉 provider，必须显式 `--image-understanding-provider vision --allow-external-api`，当前尚未实现。
+
+默认仍不调用视觉模型、OCR、DeepSeek 或任何外部 API。
 
 输出用途：
 
@@ -47,21 +49,26 @@ pipeline 在 validator 通过并完成本地图片扫描后，会先生成本地
 - 记录适合封面、视频场景、辅助素材或需要人工复核。
 - 为后续真实图片理解、图片筛选、封面选择和图生视频前置门禁保留 contract。
 
-当前拒绝规则：
+当前 fallback 拒绝规则：
 
 - 文件名包含 `qrcode` / `qr` / `phone` / `tel` / `address` / `menu` / `price` / `contact` / `wechat` / `wx` 时标记为 `invalid_*` 并拒绝进入视频。
+- 该规则只属于 `filename_fallback`，不能作为正式产品主逻辑。
 - 拒绝图片当前只产生 warning，不阻塞 pipeline。
 - 没有图片时为 error，pipeline `ok=false`。
 
 `pipeline_report.json` 记录：
 
 - `image_understanding_path`
+- `image_understanding_provider`
 - `image_understanding_passed`
 - `allowed_image_count`
 - `rejected_image_count`
 - `image_category_counts`
 
-详细字段和规则见 `restaurant_docs/IMAGE_UNDERSTANDING_SPEC.md`。
+详细字段和规则见：
+
+- `restaurant_docs/IMAGE_UNDERSTANDING_SPEC.md`
+- `restaurant_docs/IMAGE_UNDERSTANDING_PROVIDER_SPEC.md`
 
 ## Mock Storyboard 规则
 
@@ -291,6 +298,7 @@ CLI 输出：
 - `output_dir`
 - `image_count`
 - `image_understanding_path`
+- `image_understanding_provider`
 - `image_understanding_passed`
 - `allowed_image_count`
 - `rejected_image_count`

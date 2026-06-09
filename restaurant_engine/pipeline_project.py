@@ -27,6 +27,15 @@ def main() -> int:
         help="Storyboard planner to use. Defaults to mock and does not call external APIs.",
     )
     parser.add_argument(
+        "--image-understanding-provider",
+        choices=("mock", "filename_fallback", "vision"),
+        default="mock",
+        help=(
+            "Image understanding provider. Defaults to mock. The vision provider "
+            "requires --allow-external-api and is not implemented yet."
+        ),
+    )
+    parser.add_argument(
         "--allow-external-api",
         action="store_true",
         help="Allow explicit external API calls for planners such as deepseek.",
@@ -41,6 +50,7 @@ def main() -> int:
         report = run_pipeline(
             Path(project_value).expanduser().resolve(),
             planner=args.planner,
+            image_understanding_provider=args.image_understanding_provider,
             allow_external_api=args.allow_external_api,
         )
     except Exception as exc:
@@ -61,6 +71,7 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"validation_passed: {report.validation_passed}")
     print(f"target_duration_seconds: {report.target_duration_seconds}")
     print(f"image_count: {report.image_count}")
+    print(f"image_understanding_provider: {report.image_understanding_provider}")
     image_understanding_status = (
         "passed" if report.image_understanding_passed else "failed"
     )

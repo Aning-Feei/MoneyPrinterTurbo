@@ -2226,3 +2226,27 @@
   - 本轮不生成音频。
   - 本轮不生成视频。
   - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。
+
+## 图片理解 Provider 架构调整
+
+- 背景：
+  - 用户确认手机上传图片文件名通常没有语义。
+  - 文件名规则不能作为正式产品图片理解主逻辑。
+- 本次目标：
+  - 暂停“根据文件名规则识别图片类别”作为主逻辑。
+  - 将文件名规则降级为显式 fallback。
+  - 建立 image understanding provider 架构。
+- 新增/调整内容：
+  - `mock` provider：默认模式，只生成开发占位，不读取图片内容，也不使用文件名语义。
+  - `filename_fallback` provider：保留原文件名规则，仅用于开发测试或无视觉模型时兜底。
+  - `vision` provider：未来真实图片内容理解入口，当前占位未实现。
+  - CLI 新增 `--image-understanding-provider`。
+  - `pipeline_report.json` 新增 `image_understanding_provider`。
+  - `image_understanding.json` 顶层新增 `provider`，单图新增 `source`。
+  - 新增 `restaurant_docs/IMAGE_UNDERSTANDING_PROVIDER_SPEC.md`。
+- 安全边界：
+  - 默认不调用外部 API。
+  - `vision` provider 必须显式 `--image-understanding-provider vision --allow-external-api`。
+  - 当前 `vision` provider 尚未实现，不会调用外部 API。
+  - 本轮不调用 DeepSeek、不调用 TTS、不调用视觉模型、不生成音频、不生成视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。

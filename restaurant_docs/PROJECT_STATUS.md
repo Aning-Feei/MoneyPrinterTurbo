@@ -1668,3 +1668,21 @@ project.json
   - 不调用 TTS。
   - 不生成音频或视频。
   - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
+
+## 第 3 阶段修正：图片理解 Provider 架构
+
+- 用户确认：真实用户会用手机上传图片，文件名通常没有语义，不能依赖文件名识别图片类别。
+- 本轮调整：
+  - 图片内容识别被明确为正式主逻辑。
+  - 文件名规则降级为 `filename_fallback`，只能作为开发兜底。
+  - 默认 provider 改为 `mock`，只生成开发占位，不读取图片内容，也不使用文件名语义。
+  - 新增 provider 概念：`mock` / `filename_fallback` / `vision`。
+  - 未来真实视觉识别必须显式使用 `--image-understanding-provider vision --allow-external-api`。
+  - 当前 `vision` provider 尚未实现，即使授权也不会调用外部 API。
+- 当前边界：
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用视觉模型或 OCR。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。

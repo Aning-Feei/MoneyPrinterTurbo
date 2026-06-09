@@ -13,7 +13,11 @@ from .models import (
     PipelineReport,
     PipelineStep,
 )
-from .image_understanding import build_mock_image_understanding
+from .image_understanding import (
+    SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS,
+    build_image_understanding,
+    normalize_image_understanding_provider,
+)
 from .deepseek_client import DeepSeekClient
 from .storyboard_planner import (
     SUPPORTED_PLANNERS,
@@ -42,6 +46,7 @@ PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
 def run_pipeline(
     project_json_path: str | Path,
     planner: str = "mock",
+    image_understanding_provider: str = "mock",
     allow_external_api: bool = False,
 ) -> PipelineReport:
     """Run the stage-2 pipeline for a restaurant project."""
@@ -49,6 +54,9 @@ def run_pipeline(
     project_root = resolve_project_root(project_file)
     output_dir = project_root / "output"
     planner_name = normalize_planner(planner)
+    image_provider_name = normalize_image_understanding_provider(
+        image_understanding_provider
+    )
 
     project_config: dict[str, Any] = {}
     image_dir: Path | None = None
@@ -86,6 +94,36 @@ def run_pipeline(
                 name="select_planner",
                 status="passed",
                 message=f"Selected planner: {planner_name}",
+            )
+        )
+
+    if image_provider_name not in SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS:
+        issues.append(
+            _pipeline_issue(
+                "unsupported_image_understanding_provider",
+                (
+                    "Unsupported image understanding provider: "
+                    f"{image_provider_name}. Supported providers: "
+                    f"{', '.join(SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS)}."
+                ),
+            )
+        )
+        steps.append(
+            PipelineStep(
+                name="select_image_understanding_provider",
+                status="failed",
+                message=(
+                    "Unsupported image understanding provider: "
+                    f"{image_provider_name}"
+                ),
+            )
+        )
+    else:
+        steps.append(
+            PipelineStep(
+                name="select_image_understanding_provider",
+                status="passed",
+                message=f"Selected image understanding provider: {image_provider_name}",
             )
         )
 
@@ -221,15 +259,34 @@ def run_pipeline(
                 "resolve_image_dir",
                 "scan_images",
                 "create_output_dir",
+                "select_image_understanding_provider",
             },
         )
     )
+    if image_provider_name == "vision" and not allow_external_api:
+        issues.append(
+            _pipeline_issue(
+                "image_understanding_external_api_not_allowed",
+                "Vision image understanding requires --allow-external-api.",
+            )
+        )
+        steps.append(
+            PipelineStep(
+                name="build_image_understanding",
+                status="failed",
+                message="Vision image understanding requires --allow-external-api.",
+            )
+        )
+        can_build_image_understanding = False
+
     if can_build_image_understanding:
         try:
-            image_understanding = build_mock_image_understanding(
+            image_understanding = build_image_understanding(
                 project_id=get_project_id(project_config),
                 image_dir=image_dir,
                 image_files=image_files,
+                provider=image_provider_name,
+                allow_external_api=allow_external_api,
             )
             if image_understanding.errors:
                 issues.extend(
@@ -258,7 +315,7 @@ def run_pipeline(
                         name="build_image_understanding",
                         status="passed",
                         message=(
-                            "Built mock image understanding for "
+                            f"Built {image_provider_name} image understanding for "
                             f"{image_understanding.image_count} images."
                         ),
                     )
@@ -273,13 +330,17 @@ def run_pipeline(
                 )
             )
     else:
-        steps.append(
-            PipelineStep(
-                name="build_image_understanding",
-                status="skipped",
-                message="Skipped because validation or image scanning did not pass.",
+        if not _has_failed_step(steps, {"build_image_understanding"}):
+            steps.append(
+                PipelineStep(
+                    name="build_image_understanding",
+                    status="skipped",
+                    message=(
+                        "Skipped because validation, image scanning, or provider "
+                        "selection did not pass."
+                    ),
+                )
             )
-        )
 
     if image_understanding is not None:
         try:
@@ -312,6 +373,15 @@ def run_pipeline(
                 message="Skipped because no image understanding was built.",
             )
         )
+
+    can_plan_storyboard = can_plan_storyboard and not _has_failed_step(
+        steps,
+        {
+            "select_image_understanding_provider",
+            "build_image_understanding",
+            "write_image_understanding",
+        },
+    )
 
     storyboard = None
     if can_plan_storyboard and planner_name == "deepseek" and not allow_external_api:
@@ -629,6 +699,7 @@ def run_pipeline(
         output_dir=output_dir,
         image_count=len(image_files),
         image_understanding_path=image_understanding_path,
+        image_understanding_provider=image_provider_name,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
@@ -661,6 +732,7 @@ def run_pipeline(
             output_dir=output_dir,
             image_count=len(image_files),
             image_understanding_path=image_understanding_path,
+            image_understanding_provider=image_provider_name,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
@@ -693,6 +765,7 @@ def run_pipeline(
             output_dir=output_dir,
             image_count=len(image_files),
             image_understanding_path=image_understanding_path,
+            image_understanding_provider=image_provider_name,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
@@ -806,6 +879,7 @@ def _build_report(
     output_dir: Path,
     image_count: int,
     image_understanding_path: str | None,
+    image_understanding_provider: str,
     storyboard_path: str | None,
     narration_plan_path: str | None,
     validation_passed: bool,
@@ -834,6 +908,7 @@ def _build_report(
         output_dir=str(output_dir),
         image_count=image_count,
         image_understanding_path=image_understanding_path,
+        image_understanding_provider=image_understanding_provider,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,

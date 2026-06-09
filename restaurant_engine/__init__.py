@@ -25,8 +25,12 @@ from .models import (
     ValidationReport,
 )
 from .image_understanding import (
+    SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS,
+    build_filename_fallback_image_understanding,
+    build_image_understanding,
     build_mock_image_understanding,
     image_understanding_to_dict,
+    normalize_image_understanding_provider,
 )
 from .narration_plan import (
     build_narration_plan,
@@ -92,10 +96,13 @@ __all__ = [
     "StoryboardContractReport",
     "StoryboardQualityReport",
     "StoryboardScene",
+    "SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS",
     "TimingRecommendation",
     "TTSContractReport",
     "ValidationIssue",
     "ValidationReport",
+    "build_filename_fallback_image_understanding",
+    "build_image_understanding",
     "build_mock_image_understanding",
     "build_narration_plan",
     "build_mock_storyboard",
@@ -109,6 +116,7 @@ __all__ = [
     "image_understanding_to_dict",
     "load_project_json",
     "normalize_planner",
+    "normalize_image_understanding_provider",
     "narration_plan_to_dict",
     "pipeline_report_to_dict",
     "preflight_report_to_dict",

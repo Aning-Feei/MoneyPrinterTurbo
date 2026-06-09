@@ -203,6 +203,7 @@ class ImageUnderstandingItem:
     image_id: int
     filename: str
     image_path: str
+    source: str
     detected_type: str
     quality_score: float
     cover_score: float
@@ -218,6 +219,7 @@ class ImageUnderstandingItem:
 class ImageUnderstandingReport:
     project_id: str
     version: str
+    provider: str
     image_dir: str
     image_count: int
     allowed_image_count: int
@@ -238,6 +240,7 @@ class PipelineReport:
     output_dir: str
     image_count: int
     image_understanding_path: str | None
+    image_understanding_provider: str
     storyboard_path: str | None
     narration_plan_path: str | None
     validation_passed: bool
