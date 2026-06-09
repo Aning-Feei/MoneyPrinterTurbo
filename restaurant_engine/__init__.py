@@ -39,6 +39,7 @@ from .preflight import (
 from .storyboard_planner import (
     build_deepseek_storyboard,
     build_mock_storyboard,
+    compute_scene_durations,
     identify_image_role,
 )
 from .validator import report_to_dict, validate_project, write_report
@@ -63,6 +64,7 @@ __all__ = [
     "build_mock_storyboard",
     "build_shot_plan",
     "build_deepseek_storyboard",
+    "compute_scene_durations",
     "create_output_dir",
     "estimate_narration_duration",
     "identify_image_role",

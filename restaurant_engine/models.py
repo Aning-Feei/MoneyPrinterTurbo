@@ -114,6 +114,8 @@ class StoryboardScene:
     mock_duration_seconds: int
     mock_narration: str
     notes: str
+    duration_seconds: int = 0
+    narration: str = ""
 
 
 @dataclass
@@ -122,6 +124,7 @@ class Storyboard:
     version: str
     scenes: list[StoryboardScene] = field(default_factory=list)
     total_mock_duration_seconds: int = 0
+    total_duration_seconds: int = 0
     notes: str = ""
 
 
@@ -135,6 +138,11 @@ class PipelineReport:
     image_count: int
     storyboard_path: str | None
     validation_passed: bool
+    target_duration_seconds: int = 30
+    scene_count: int = 0
+    scene_durations: list[int] = field(default_factory=list)
+    total_duration_seconds: int = 0
+    duration_normalized: bool = False
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False

@@ -30,7 +30,15 @@
 
 - 每张图片生成一个 mock scene。
 - 图片按文件名自然排序。
-- 每个 scene 使用 `5` 秒 mock 时长。
+- scene 时长由 `target_duration_seconds` 和图片数量本地计算，全部为整数秒。
+- scene 时长总和必须等于目标时长。
+- 如果 `project.json` 缺少 `target_duration_seconds`，沿用 validator 默认值 `30` 秒。
+- 当前整数秒分配示例：
+  - `30 秒 / 8 图`：`4, 4, 3, 4, 4, 3, 4, 4`
+  - `30 秒 / 6 图`：`5, 5, 5, 5, 5, 5`
+  - `40 秒 / 8 图`：`5, 5, 5, 5, 5, 5, 5, 5`
+  - `50 秒 / 10 图`：`5, 5, 5, 5, 5, 5, 5, 5, 5, 5`
+  - `60 秒 / 12 图`：`5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5`
 - 根据文件名识别基础角色：
   - `intro` / `storefront`：门头或开场。
   - `interior`：环境。
@@ -40,6 +48,20 @@
   - `extra`：额外亮点。
   - 未识别时为 `unknown`。
 - `mock_narration` 只用于占位，不调用 AI。
+
+## Storyboard 时长对齐
+
+当前 pipeline 在本地统一计算 scene 时长，不信任外部 planner 返回的时长字段：
+
+- `compute_scene_durations(target_duration_seconds, image_count)` 返回整数秒列表。
+- 返回列表长度等于图片数量。
+- 返回列表总和等于目标时长。
+- mock planner 直接使用该时长列表。
+- DeepSeek planner prompt 中会写入目标时长、图片数量和要求的时长列表。
+- DeepSeek 返回后仍由本地代码覆盖所有 scene 的 `duration_seconds`。
+- DeepSeek scene 数量不匹配会失败。
+- DeepSeek scene 顺序不匹配会失败。
+- DeepSeek duration 不匹配不会失败，统一由本地时长列表归一化。
 
 ## Planner 模式
 
@@ -138,6 +160,7 @@ CLI 输出：
 - `project_id`
 - `version`
 - `scenes`
+- `total_duration_seconds`
 - `total_mock_duration_seconds`
 - `notes`
 
@@ -151,6 +174,11 @@ CLI 输出：
 - `image_count`
 - `storyboard_path`
 - `validation_passed`
+- `target_duration_seconds`
+- `scene_count`
+- `scene_durations`
+- `total_duration_seconds`
+- `duration_normalized`
 - `steps`
 - `issues`
 
@@ -160,6 +188,5 @@ CLI 输出：
 - 接入真实文案生成，但仍保持可测试的本地报告输出。
 - 接入 TTS 前先冻结输入/输出契约。
 - 接入视频生成前保留 dry-run / mock 模式。
-- 增强 `target_duration_seconds` 时长约束。
-- 对齐 scene duration 与目标总时长。
+- 继续增强 DeepSeek prompt 的文案节奏和结构约束。
 - 增加更严格的 storyboard schema 校验。

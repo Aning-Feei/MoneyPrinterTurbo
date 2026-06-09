@@ -17,6 +17,7 @@ from .storyboard_planner import (
     build_deepseek_storyboard,
     build_mock_storyboard,
     get_project_id,
+    get_target_duration_seconds,
 )
 from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
@@ -287,6 +288,7 @@ def run_pipeline(
         planner=planner_name,
         external_api_allowed=allow_external_api,
         external_api_called=external_api_called,
+        storyboard=storyboard,
         steps=steps,
         issues=issues,
     )
@@ -311,6 +313,7 @@ def run_pipeline(
             planner=planner_name,
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
+            storyboard=storyboard,
             steps=steps,
             issues=issues,
         )
@@ -335,6 +338,7 @@ def run_pipeline(
             planner=planner_name,
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
+            storyboard=storyboard,
             steps=steps,
             issues=issues,
         )
@@ -421,6 +425,7 @@ def _build_report(
     planner: str,
     external_api_allowed: bool,
     external_api_called: bool,
+    storyboard,
     steps: list[PipelineStep],
     issues: list[dict[str, Any]],
 ) -> PipelineReport:
@@ -438,6 +443,17 @@ def _build_report(
         image_count=image_count,
         storyboard_path=storyboard_path,
         validation_passed=validation_passed,
+        target_duration_seconds=get_target_duration_seconds(project_config),
+        scene_count=len(storyboard.scenes) if storyboard is not None else 0,
+        scene_durations=(
+            [scene.duration_seconds for scene in storyboard.scenes]
+            if storyboard is not None
+            else []
+        ),
+        total_duration_seconds=(
+            storyboard.total_duration_seconds if storyboard is not None else 0
+        ),
+        duration_normalized=storyboard is not None,
         planner=planner,
         external_api_allowed=external_api_allowed,
         external_api_called=external_api_called,

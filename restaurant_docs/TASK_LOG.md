@@ -1910,3 +1910,29 @@
   - 后续需要增强 `target_duration_seconds` 时长约束，或由后续时长分配模块覆盖。
 - 结论：
   - DeepSeek planner 真实调用已打通。
+
+## DeepSeek planner 时长约束增强
+
+- 本次目标：
+  - 修复 DeepSeek planner 返回 scene duration 与目标时长不一致的问题。
+  - 将 mock planner 和 DeepSeek planner 统一到本地整数秒 duration 分配逻辑。
+- 调整内容：
+  - 新增 `compute_scene_durations(target_duration_seconds, image_count)`。
+  - `project.json` 缺少 `target_duration_seconds` 时沿用默认 `30` 秒。
+  - mock storyboard 使用本地 duration 分配，不再固定每张图 `5` 秒。
+  - DeepSeek prompt 写入目标时长、图片数量和必需 scene duration 列表。
+  - DeepSeek 返回后，本地覆盖所有 scene 的 `duration_seconds`。
+  - `Storyboard` 增加标准 `total_duration_seconds`。
+  - `PipelineReport` 增加 `target_duration_seconds`、`scene_count`、`scene_durations`、`total_duration_seconds`、`duration_normalized`。
+- 关键验证目标：
+  - `30 秒 / 8 图` 应输出 `4, 4, 3, 4, 4, 3, 4, 4`。
+  - mock pipeline 的 `total_duration_seconds` 应为 `30`。
+  - DeepSeek 未授权时仍不调用外部 API。
+- 安全边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。
+  - 未修改 MoneyPrinterTurbo 视频生成核心。

@@ -1413,3 +1413,26 @@ project.json
 - 当前非阻塞问题：
   - DeepSeek 返回的 `total duration field` 为 `24`，8 个 scene 每个 3 秒。
   - 后续进入真实视频链路前，需要增强 `target_duration_seconds` 时长约束，或由后续时长分配模块覆盖。
+
+## 第 2 阶段补充：Storyboard 时长约束增强
+
+- 开始增强 DeepSeek planner 和 mock planner 的 scene 时长对齐逻辑。
+- 新增本地整数秒 scene duration 分配规则：
+  - `duration_seconds` 全部为整数。
+  - scene 数量等于图片数量。
+  - scene duration 总和等于 `target_duration_seconds`。
+  - 缺少 `target_duration_seconds` 时沿用 validator 默认 `30` 秒。
+- 当前关键样例：
+  - `30 秒 / 8 图` → `4, 4, 3, 4, 4, 3, 4, 4`。
+  - `30 秒 / 6 图` → `5, 5, 5, 5, 5, 5`。
+  - `40 秒 / 8 图` → `5, 5, 5, 5, 5, 5, 5, 5`。
+  - `50 秒 / 10 图` → `5, 5, 5, 5, 5, 5, 5, 5, 5, 5`。
+  - `60 秒 / 12 图` → `5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5`。
+- mock storyboard 不再使用固定 `5` 秒时长，改为使用目标时长分配结果。
+- DeepSeek planner prompt 会包含目标时长、图片数量和要求的 scene duration 列表。
+- DeepSeek 返回后，本地 pipeline 会覆盖 scene duration，避免外部 planner 返回 `24` 秒等与目标不一致的问题进入后续链路。
+- DeepSeek scene 数量或图片顺序不匹配仍会失败。
+- 本轮不调用 DeepSeek。
+- 本轮不调用任何外部 API。
+- 本轮不生成视频。
+- 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
