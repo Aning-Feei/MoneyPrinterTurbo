@@ -10,30 +10,63 @@ from .models import (
     ImageFile,
     PipelineReport,
     PipelineStep,
-    Storyboard,
-    StoryboardScene,
+)
+from .deepseek_client import DeepSeekClient
+from .storyboard_planner import (
+    SUPPORTED_PLANNERS,
+    build_deepseek_storyboard,
+    build_mock_storyboard,
+    get_project_id,
 )
 from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
 
-MOCK_SCENE_DURATION_SECONDS = 5
 STORYBOARD_FILE_NAME = "storyboard.json"
 PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
 
 
-def run_pipeline(project_json_path: str | Path) -> PipelineReport:
-    """Run the stage-2 mock pipeline for a restaurant project."""
+def run_pipeline(
+    project_json_path: str | Path,
+    planner: str = "mock",
+    allow_external_api: bool = False,
+) -> PipelineReport:
+    """Run the stage-2 pipeline for a restaurant project."""
     project_file = Path(project_json_path).expanduser().resolve()
     project_root = resolve_project_root(project_file)
     output_dir = project_root / "output"
+    planner_name = normalize_planner(planner)
 
     project_config: dict[str, Any] = {}
     image_dir: Path | None = None
     image_files: list[ImageFile] = []
     storyboard_path: str | None = None
     validation_passed = False
+    external_api_called = False
     issues: list[dict[str, Any]] = []
     steps: list[PipelineStep] = []
+
+    if planner_name not in SUPPORTED_PLANNERS:
+        issues.append(
+            _pipeline_issue(
+                "unsupported_planner",
+                f"Unsupported planner: {planner_name}. Supported planners: mock, deepseek.",
+            )
+        )
+        steps.append(
+            PipelineStep(
+                name="select_planner",
+                status="failed",
+                message=f"Unsupported planner: {planner_name}",
+            )
+        )
+    else:
+        steps.append(
+            PipelineStep(
+                name="select_planner",
+                status="passed",
+                message=f"Selected planner: {planner_name}",
+            )
+        )
 
     try:
         project_config = load_project_json(project_file)
@@ -139,22 +172,82 @@ def run_pipeline(project_json_path: str | Path) -> PipelineReport:
             )
         )
 
-    can_write_storyboard = (
+    can_plan_storyboard = (
         validation_passed
         and image_dir is not None
         and bool(image_files)
-        and not _has_failed_step(steps, {"load_project_json", "resolve_image_dir", "scan_images", "create_output_dir"})
+        and planner_name in SUPPORTED_PLANNERS
+        and not _has_failed_step(
+            steps,
+            {
+                "select_planner",
+                "load_project_json",
+                "resolve_image_dir",
+                "scan_images",
+                "create_output_dir",
+            },
+        )
     )
 
-    if can_write_storyboard:
-        storyboard = build_mock_storyboard(project_config, image_files)
-        steps.append(
-            PipelineStep(
-                name="build_mock_storyboard",
-                status="passed",
-                message=f"Built mock storyboard with {len(storyboard.scenes)} scenes.",
+    storyboard = None
+    if can_plan_storyboard and planner_name == "deepseek" and not allow_external_api:
+        issues.append(
+            _pipeline_issue(
+                "external_api_not_allowed",
+                "DeepSeek planner requires allow_external_api=True.",
             )
         )
+        steps.append(
+            PipelineStep(
+                name="plan_storyboard",
+                status="failed",
+                message="DeepSeek planner requires --allow-external-api.",
+            )
+        )
+    elif can_plan_storyboard:
+        try:
+            if planner_name == "mock":
+                storyboard = build_mock_storyboard(project_config, image_files)
+            else:
+                deepseek_client = DeepSeekClient()
+                try:
+                    storyboard = build_deepseek_storyboard(
+                        project_config,
+                        image_files,
+                        client=deepseek_client,
+                    )
+                finally:
+                    external_api_called = deepseek_client.external_api_called
+
+            steps.append(
+                PipelineStep(
+                    name="plan_storyboard",
+                    status="passed",
+                    message=(
+                        f"Built {planner_name} storyboard with "
+                        f"{len(storyboard.scenes)} scenes."
+                    ),
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("plan_storyboard_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="plan_storyboard",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="plan_storyboard",
+                status="skipped",
+                message="Skipped because validation or image scanning did not pass.",
+            )
+        )
+
+    if storyboard is not None:
         try:
             storyboard_file = write_storyboard(output_dir, storyboard)
             storyboard_path = str(storyboard_file)
@@ -177,13 +270,6 @@ def run_pipeline(project_json_path: str | Path) -> PipelineReport:
     else:
         steps.append(
             PipelineStep(
-                name="build_mock_storyboard",
-                status="skipped",
-                message="Skipped because validation or image scanning did not pass.",
-            )
-        )
-        steps.append(
-            PipelineStep(
                 name="write_storyboard",
                 status="skipped",
                 message="Skipped because no storyboard was built.",
@@ -198,6 +284,9 @@ def run_pipeline(project_json_path: str | Path) -> PipelineReport:
         image_count=len(image_files),
         storyboard_path=storyboard_path,
         validation_passed=validation_passed,
+        planner=planner_name,
+        external_api_allowed=allow_external_api,
+        external_api_called=external_api_called,
         steps=steps,
         issues=issues,
     )
@@ -219,6 +308,9 @@ def run_pipeline(project_json_path: str | Path) -> PipelineReport:
             image_count=len(image_files),
             storyboard_path=storyboard_path,
             validation_passed=validation_passed,
+            planner=planner_name,
+            external_api_allowed=allow_external_api,
+            external_api_called=external_api_called,
             steps=steps,
             issues=issues,
         )
@@ -240,6 +332,9 @@ def run_pipeline(project_json_path: str | Path) -> PipelineReport:
             image_count=len(image_files),
             storyboard_path=storyboard_path,
             validation_passed=validation_passed,
+            planner=planner_name,
+            external_api_allowed=allow_external_api,
+            external_api_called=external_api_called,
             steps=steps,
             issues=issues,
         )
@@ -295,40 +390,7 @@ def create_output_dir(project_root: str | Path) -> Path:
     return output_dir
 
 
-def build_mock_storyboard(
-    project_config: dict[str, Any],
-    image_files: list[ImageFile],
-) -> Storyboard:
-    project_id = get_project_id(project_config)
-    scenes = [
-        StoryboardScene(
-            index=index,
-            role=identify_image_role(image.name),
-            image_name=image.name,
-            image_path=str(image.path),
-            mock_duration_seconds=MOCK_SCENE_DURATION_SECONDS,
-            mock_narration=(
-                f"Mock narration for {identify_image_role(image.name)} scene."
-            ),
-            notes="mock storyboard only; no AI generation in this phase",
-        )
-        for index, image in enumerate(image_files, start=1)
-    ]
-    return Storyboard(
-        project_id=project_id,
-        version="mock-v1",
-        scenes=scenes,
-        total_mock_duration_seconds=sum(
-            scene.mock_duration_seconds for scene in scenes
-        ),
-        notes=(
-            "Generated by restaurant_engine pipeline skeleton. No video, TTS, "
-            "DeepSeek, or image-to-video service was called."
-        ),
-    )
-
-
-def write_storyboard(output_dir: str | Path, storyboard: Storyboard) -> Path:
+def write_storyboard(output_dir: str | Path, storyboard) -> Path:
     storyboard_path = Path(output_dir).expanduser().resolve() / STORYBOARD_FILE_NAME
     _write_json(storyboard_path, asdict(storyboard))
     return storyboard_path
@@ -344,33 +406,8 @@ def pipeline_report_to_dict(report: PipelineReport) -> dict[str, Any]:
     return asdict(report)
 
 
-def get_project_id(project_config: dict[str, Any]) -> str:
-    for key in ("project_id", "project_name", "selected_title"):
-        value = str(project_config.get(key) or "").strip()
-        if value:
-            return value
-    return "restaurant_project"
-
-
-def identify_image_role(image_name: str) -> str:
-    name = image_name.lower()
-    if "intro" in name or "storefront" in name:
-        return "intro"
-    if "interior" in name:
-        return "interior"
-    if "dish_1" in name:
-        return "dish_1"
-    if "dish_2" in name:
-        return "dish_2"
-    if "dish_3" in name:
-        return "dish_3"
-    if "dining" in name or "gathering" in name:
-        return "dining"
-    if "detail" in name:
-        return "detail"
-    if "extra" in name:
-        return "extra"
-    return "unknown"
+def normalize_planner(planner: str) -> str:
+    return str(planner or "mock").strip().lower()
 
 
 def _build_report(
@@ -381,6 +418,9 @@ def _build_report(
     image_count: int,
     storyboard_path: str | None,
     validation_passed: bool,
+    planner: str,
+    external_api_allowed: bool,
+    external_api_called: bool,
     steps: list[PipelineStep],
     issues: list[dict[str, Any]],
 ) -> PipelineReport:
@@ -398,6 +438,9 @@ def _build_report(
         image_count=image_count,
         storyboard_path=storyboard_path,
         validation_passed=validation_passed,
+        planner=planner,
+        external_api_allowed=external_api_allowed,
+        external_api_called=external_api_called,
         steps=list(steps),
         issues=list(issues),
     )

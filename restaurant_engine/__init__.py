@@ -1,5 +1,6 @@
 """Restaurant video prototype validation tools."""
 
+from .deepseek_client import DeepSeekClient, DeepSeekClientError, MissingDeepSeekAPIKey
 from .models import (
     ImageFile,
     PipelineReport,
@@ -16,9 +17,9 @@ from .models import (
     ValidationReport,
 )
 from .pipeline import (
-    build_mock_storyboard,
     create_output_dir,
     load_project_json,
+    normalize_planner,
     pipeline_report_to_dict,
     run_pipeline,
     scan_image_files,
@@ -35,10 +36,18 @@ from .preflight import (
     validate_timing_coverage,
     write_preflight_report,
 )
+from .storyboard_planner import (
+    build_deepseek_storyboard,
+    build_mock_storyboard,
+    identify_image_role,
+)
 from .validator import report_to_dict, validate_project, write_report
 
 __all__ = [
+    "DeepSeekClient",
+    "DeepSeekClientError",
     "ImageFile",
+    "MissingDeepSeekAPIKey",
     "PipelineReport",
     "PipelineStep",
     "PreflightReport",
@@ -53,9 +62,12 @@ __all__ = [
     "ValidationReport",
     "build_mock_storyboard",
     "build_shot_plan",
+    "build_deepseek_storyboard",
     "create_output_dir",
     "estimate_narration_duration",
+    "identify_image_role",
     "load_project_json",
+    "normalize_planner",
     "pipeline_report_to_dict",
     "preflight_report_to_dict",
     "recommend_clip_duration",

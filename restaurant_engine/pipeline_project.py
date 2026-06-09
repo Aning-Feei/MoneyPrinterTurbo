@@ -20,6 +20,17 @@ def main() -> int:
         dest="project_option",
         help="Path to project.json.",
     )
+    parser.add_argument(
+        "--planner",
+        choices=("mock", "deepseek"),
+        default="mock",
+        help="Storyboard planner to use. Defaults to mock and does not call external APIs.",
+    )
+    parser.add_argument(
+        "--allow-external-api",
+        action="store_true",
+        help="Allow explicit external API calls for planners such as deepseek.",
+    )
     args = parser.parse_args()
 
     project_value = args.project_option or args.project_arg
@@ -27,7 +38,11 @@ def main() -> int:
         parser.error("project.json path is required as a positional argument or --project.")
 
     try:
-        report = run_pipeline(Path(project_value).expanduser().resolve())
+        report = run_pipeline(
+            Path(project_value).expanduser().resolve(),
+            planner=args.planner,
+            allow_external_api=args.allow_external_api,
+        )
     except Exception as exc:
         print(f"pipeline failed: {exc}")
         return 2
@@ -40,6 +55,9 @@ def main() -> int:
 def _print_summary(report, report_path: Path) -> None:
     print(f"project_id: {report.project_id}")
     print(f"ok: {report.ok}")
+    print(f"planner: {report.planner}")
+    print(f"external_api_allowed: {report.external_api_allowed}")
+    print(f"external_api_called: {report.external_api_called}")
     print(f"validation_passed: {report.validation_passed}")
     print(f"image_count: {report.image_count}")
     print(f"output_dir: {report.output_dir}")

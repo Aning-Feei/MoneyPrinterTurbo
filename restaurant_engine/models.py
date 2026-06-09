@@ -135,5 +135,8 @@ class PipelineReport:
     image_count: int
     storyboard_path: str | None
     validation_passed: bool
+    planner: str = "mock"
+    external_api_allowed: bool = False
+    external_api_called: bool = False
     steps: list[PipelineStep] = field(default_factory=list)
     issues: list[dict[str, Any]] = field(default_factory=list)

@@ -41,11 +41,53 @@
   - 未识别时为 `unknown`。
 - `mock_narration` 只用于占位，不调用 AI。
 
+## Planner 模式
+
+当前 pipeline 支持两个 planner：
+
+- `mock`：默认模式，只生成本地 mock storyboard，不调用外部 API。
+- `deepseek`：DeepSeek storyboard planner，需要显式允许外部 API。
+
+默认命令等价于 `--planner mock`：
+
+```bash
+python3 -m restaurant_engine.pipeline_project \
+  --project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json
+```
+
+DeepSeek 必须同时提供：
+
+```bash
+python3 -m restaurant_engine.pipeline_project \
+  --project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json \
+  --planner deepseek \
+  --allow-external-api
+```
+
+如果只传 `--planner deepseek` 但没有 `--allow-external-api`：
+
+- 不调用 DeepSeek。
+- `pipeline_report.json` 写入 `ok=false`。
+- `external_api_called=false`。
+- CLI 返回非 0。
+
+## DeepSeek 安全边界
+
+- API Key 优先来自环境变量 `DEEPSEEK_API_KEY`。
+- 如果环境变量不存在，再从本地 `config.toml` 的 `deepseek_api_key` 读取。
+- Base URL 优先来自 `DEEPSEEK_BASE_URL`，再读本地配置，最后 fallback 到 `https://api.deepseek.com/v1`。
+- Model 优先来自 `DEEPSEEK_MODEL`，再读本地配置，最后 fallback 到 `deepseek-chat`。
+- `config.toml` 不进入 Git。
+- 不把 API Key 写入 `pipeline_report.json`、`storyboard.json` 或日志。
+- 不把完整请求头写入 report。
+- 不建议把完整 prompt/response 写入 report。
+- 默认 mock 模式不读取 DeepSeek key，也不调用外部 API。
+
 ## 当前不做
 
 - 不生成视频。
 - 不生成封面。
-- 不调用 DeepSeek。
+- 默认不调用 DeepSeek；真实调用必须显式 `--planner deepseek --allow-external-api`。
 - 不调用 TTS。
 - 不调用 AI 图生视频。
 - 不接真实图生视频服务商。

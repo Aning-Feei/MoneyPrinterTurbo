@@ -1856,3 +1856,27 @@
 - 预期输出：
   - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json`
   - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json`
+
+## 第 2 阶段 DeepSeek planner 安全接入
+
+- 本次目标：
+  - 在 `restaurant_engine` 中新增 DeepSeek planner 能力。
+  - pipeline 支持 `mock` 和 `deepseek` planner。
+  - 默认 planner 必须保持 `mock`。
+  - DeepSeek 调用必须由用户显式开启。
+- 调整内容：
+  - 新增 `restaurant_engine/deepseek_client.py`。
+  - 新增 `restaurant_engine/storyboard_planner.py`。
+  - `run_pipeline(...)` 增加 `planner` 和 `allow_external_api` 参数。
+  - CLI 增加 `--planner mock|deepseek` 和 `--allow-external-api`。
+  - `PipelineReport` 增加 `planner`、`external_api_allowed`、`external_api_called`。
+  - `.gitignore` 补充常见敏感文件规则。
+- 安全约束：
+  - 默认 mock 模式不读取 DeepSeek key，不调用外部 API。
+  - `--planner deepseek` 未带 `--allow-external-api` 时阻止运行。
+  - report 不写 API Key、请求头、完整 prompt/response。
+- 保持不变：
+  - 未修改 WebUI。
+  - 未修改 `app/services/llm.py`。
+  - 未修改视频生成核心。
+  - 本轮验证不主动调用 DeepSeek 或任何外部 API。

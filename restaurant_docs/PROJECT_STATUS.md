@@ -1363,3 +1363,22 @@ project.json
   - 不修改 WebUI。
   - 不修改 MoneyPrinterTurbo 原有业务代码。
   - 不修改视频生成核心。
+
+## 第 2 阶段补充：DeepSeek planner 安全接入
+
+- DeepSeek 接入审查已完成。
+- `restaurant_engine` 开始接入 DeepSeek storyboard planner。
+- pipeline 默认 planner 仍为 `mock`，默认不调用外部 API。
+- DeepSeek planner 必须显式使用：
+  - `--planner deepseek`
+  - `--allow-external-api`
+- 如果只指定 `--planner deepseek`，但未允许外部 API：
+  - 不调用 DeepSeek。
+  - `pipeline_report.json` 写入 `ok=false`。
+  - `external_api_called=false`。
+- 新增敏感文件 ignore 规则，覆盖 `.env`、key、pem、secret、token 等常见本地凭证文件。
+- 当前边界：
+  - 本轮实现不主动调用外部 API。
+  - 未修改 WebUI。
+  - 未修改 `app/services/llm.py`。
+  - 未修改视频生成核心。
