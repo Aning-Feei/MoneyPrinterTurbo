@@ -64,6 +64,11 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"scene_count: {report.scene_count}")
     print(f"scene_durations: {report.scene_durations}")
     print(f"total_duration_seconds: {report.total_duration_seconds}")
+    contract_status = "passed" if report.storyboard_contract_passed else "failed"
+    print(f"storyboard contract: {contract_status}")
+    print(f"duration_sum: {report.duration_sum}")
+    print(f"contract errors count: {len(report.storyboard_contract_errors)}")
+    print(f"contract warnings count: {len(report.storyboard_contract_warnings)}")
     print(f"output_dir: {report.output_dir}")
     print(f"storyboard: {report.storyboard_path}")
     print(f"pipeline_report: {report_path}")

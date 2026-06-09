@@ -128,6 +128,26 @@ class Storyboard:
     notes: str = ""
 
 
+@dataclass(frozen=True)
+class StoryboardContractIssue:
+    level: str
+    code: str
+    message: str
+
+
+@dataclass
+class StoryboardContractReport:
+    passed: bool
+    errors: list[StoryboardContractIssue] = field(default_factory=list)
+    warnings: list[StoryboardContractIssue] = field(default_factory=list)
+    scene_count: int = 0
+    image_count: int = 0
+    target_duration_seconds: int = 30
+    duration_sum: int = 0
+    expected_image_order: list[str] = field(default_factory=list)
+    actual_image_order: list[str] = field(default_factory=list)
+
+
 @dataclass
 class PipelineReport:
     ok: bool
@@ -143,6 +163,10 @@ class PipelineReport:
     scene_durations: list[int] = field(default_factory=list)
     total_duration_seconds: int = 0
     duration_normalized: bool = False
+    storyboard_contract_passed: bool = False
+    storyboard_contract_errors: list[dict[str, Any]] = field(default_factory=list)
+    storyboard_contract_warnings: list[dict[str, Any]] = field(default_factory=list)
+    duration_sum: int = 0
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False

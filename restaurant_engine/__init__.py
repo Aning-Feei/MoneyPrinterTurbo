@@ -11,6 +11,8 @@ from .models import (
     Shot,
     ShotPlan,
     Storyboard,
+    StoryboardContractIssue,
+    StoryboardContractReport,
     StoryboardScene,
     TimingRecommendation,
     ValidationIssue,
@@ -42,6 +44,10 @@ from .storyboard_planner import (
     compute_scene_durations,
     identify_image_role,
 )
+from .storyboard_contract import (
+    storyboard_contract_report_to_dict,
+    validate_storyboard_contract,
+)
 from .validator import report_to_dict, validate_project, write_report
 
 __all__ = [
@@ -57,6 +63,8 @@ __all__ = [
     "Shot",
     "ShotPlan",
     "Storyboard",
+    "StoryboardContractIssue",
+    "StoryboardContractReport",
     "StoryboardScene",
     "TimingRecommendation",
     "ValidationIssue",
@@ -80,8 +88,10 @@ __all__ = [
     "scan_image_files",
     "validate_timing_coverage",
     "validate_project",
+    "validate_storyboard_contract",
     "write_pipeline_report",
     "write_preflight_report",
     "write_report",
     "write_storyboard",
+    "storyboard_contract_report_to_dict",
 ]

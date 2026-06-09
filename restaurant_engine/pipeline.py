@@ -19,6 +19,7 @@ from .storyboard_planner import (
     get_project_id,
     get_target_duration_seconds,
 )
+from .storyboard_contract import validate_storyboard_contract
 from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
 
@@ -43,6 +44,7 @@ def run_pipeline(
     storyboard_path: str | None = None
     validation_passed = False
     external_api_called = False
+    storyboard_contract_report = None
     issues: list[dict[str, Any]] = []
     steps: list[PipelineStep] = []
 
@@ -250,6 +252,59 @@ def run_pipeline(
 
     if storyboard is not None:
         try:
+            storyboard_contract_report = validate_storyboard_contract(
+                storyboard=storyboard,
+                image_files=image_files,
+                target_duration_seconds=get_target_duration_seconds(project_config),
+                planner=planner_name,
+            )
+            if storyboard_contract_report.passed:
+                steps.append(
+                    PipelineStep(
+                        name="validate_storyboard_contract",
+                        status="passed",
+                        message=(
+                            "Storyboard contract passed with "
+                            f"{len(storyboard_contract_report.warnings)} warnings."
+                        ),
+                    )
+                )
+            else:
+                issues.extend(
+                    _contract_issues_to_pipeline_issues(
+                        storyboard_contract_report.errors
+                    )
+                )
+                steps.append(
+                    PipelineStep(
+                        name="validate_storyboard_contract",
+                        status="failed",
+                        message=(
+                            "Storyboard contract failed with "
+                            f"{len(storyboard_contract_report.errors)} errors."
+                        ),
+                    )
+                )
+        except Exception as exc:
+            issues.append(_pipeline_issue("storyboard_contract_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="validate_storyboard_contract",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="validate_storyboard_contract",
+                status="skipped",
+                message="Skipped because no storyboard was built.",
+            )
+        )
+
+    if storyboard is not None:
+        try:
             storyboard_file = write_storyboard(output_dir, storyboard)
             storyboard_path = str(storyboard_file)
             steps.append(
@@ -289,6 +344,7 @@ def run_pipeline(
         external_api_allowed=allow_external_api,
         external_api_called=external_api_called,
         storyboard=storyboard,
+        storyboard_contract_report=storyboard_contract_report,
         steps=steps,
         issues=issues,
     )
@@ -314,6 +370,7 @@ def run_pipeline(
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
             storyboard=storyboard,
+            storyboard_contract_report=storyboard_contract_report,
             steps=steps,
             issues=issues,
         )
@@ -339,6 +396,7 @@ def run_pipeline(
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
             storyboard=storyboard,
+            storyboard_contract_report=storyboard_contract_report,
             steps=steps,
             issues=issues,
         )
@@ -426,6 +484,7 @@ def _build_report(
     external_api_allowed: bool,
     external_api_called: bool,
     storyboard,
+    storyboard_contract_report,
     steps: list[PipelineStep],
     issues: list[dict[str, Any]],
 ) -> PipelineReport:
@@ -454,6 +513,26 @@ def _build_report(
             storyboard.total_duration_seconds if storyboard is not None else 0
         ),
         duration_normalized=storyboard is not None,
+        storyboard_contract_passed=(
+            storyboard_contract_report.passed
+            if storyboard_contract_report is not None
+            else False
+        ),
+        storyboard_contract_errors=(
+            [asdict(issue) for issue in storyboard_contract_report.errors]
+            if storyboard_contract_report is not None
+            else []
+        ),
+        storyboard_contract_warnings=(
+            [asdict(issue) for issue in storyboard_contract_report.warnings]
+            if storyboard_contract_report is not None
+            else []
+        ),
+        duration_sum=(
+            storyboard_contract_report.duration_sum
+            if storyboard_contract_report is not None
+            else 0
+        ),
         planner=planner,
         external_api_allowed=external_api_allowed,
         external_api_called=external_api_called,
@@ -477,6 +556,19 @@ def _pipeline_issue(code: str, message: str) -> dict[str, Any]:
         "field": None,
         "file_name": None,
     }
+
+
+def _contract_issues_to_pipeline_issues(contract_issues) -> list[dict[str, Any]]:
+    return [
+        {
+            "code": issue.code,
+            "message": issue.message,
+            "severity": issue.level,
+            "field": None,
+            "file_name": None,
+        }
+        for issue in contract_issues
+    ]
 
 
 def _has_failed_step(steps: list[PipelineStep], names: set[str]) -> bool:

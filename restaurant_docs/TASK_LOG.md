@@ -1975,3 +1975,41 @@
 - 结论：
   - DeepSeek planner 真实调用 + 时长对齐已通过。
   - 真实 DeepSeek 返回后，scene duration 已被本地强制归一化到 `target_duration_seconds=30`。
+
+## Storyboard contract 强化
+
+- 本次目标：
+  - 在进入 TTS、图生视频和视频合成前，为 `storyboard.json` 增加结构门禁。
+  - pipeline 生成 storyboard 后自动校验结构、时长、图片顺序和字段完整性。
+- 新增/调整内容：
+  - 新增 `restaurant_engine/storyboard_contract.py`。
+  - 新增 `StoryboardContractIssue`。
+  - 新增 `StoryboardContractReport`。
+  - 新增 `validate_storyboard_contract(...)`。
+  - 新增 `storyboard_contract_report_to_dict(...)`。
+  - pipeline 新增 `validate_storyboard_contract` step。
+  - `PipelineReport` 增加：
+    - `storyboard_contract_passed`
+    - `storyboard_contract_errors`
+    - `storyboard_contract_warnings`
+    - `duration_sum`
+  - CLI 摘要增加 storyboard contract 状态、duration sum、errors count、warnings count。
+- 校验规则摘要：
+  - scene 数量等于图片数量。
+  - scene 顺序等于图片文件名排序。
+  - scene 必填字段完整。
+  - `index` 从 `1` 开始连续递增。
+  - `duration_seconds` 为正整数。
+  - duration 总和等于 `target_duration_seconds`。
+  - `storyboard.total_duration_seconds` 与目标时长对齐。
+  - narration 不为空。
+  - mock planner 中 mock 占位文案记 warning。
+  - DeepSeek planner 中 mock 占位文案记 error。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。
+  - 未修改视频生成核心。

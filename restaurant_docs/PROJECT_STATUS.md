@@ -1469,3 +1469,36 @@ project.json
 - 当前阻塞问题：无。
 - 当前非阻塞问题：
   - 系统 `python3` 缺少项目依赖，本次实际使用项目 `.venv` Python 执行同等 pipeline 命令。
+
+## 第 2 阶段补充：Storyboard Contract 强化
+
+- 开始实现 storyboard contract 校验。
+- 该校验是进入 TTS、图生视频和视频合成前的结构门禁。
+- 新增校验内容：
+  - `scenes` 必须存在且是 list。
+  - scene 数量必须等于本地图片数量。
+  - scene 顺序必须与图片文件名排序一致。
+  - scene 必填字段完整：`index`、`role`、`image_name`、`image_path`、`duration_seconds`、`narration` 或 `mock_narration`。
+  - `index` 必须从 `1` 开始连续递增。
+  - `image_path` 文件名必须与 `image_name` 一致。
+  - `duration_seconds` 必须是正整数。
+  - scene duration 总和必须等于 `target_duration_seconds`。
+  - `storyboard.total_duration_seconds` 必须等于 `target_duration_seconds`。
+  - `project_id` 和 `version` 必须存在。
+  - narration 文本不能为空。
+  - mock planner 中 mock 占位文案只记 warning。
+  - DeepSeek planner 中 mock 占位文案记 error。
+- pipeline 新增 `validate_storyboard_contract` step。
+- `pipeline_report.json` 新增 contract 结果字段：
+  - `storyboard_contract_passed`
+  - `storyboard_contract_errors`
+  - `storyboard_contract_warnings`
+  - `duration_sum`
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。
+  - 未修改 MoneyPrinterTurbo 视频生成核心。

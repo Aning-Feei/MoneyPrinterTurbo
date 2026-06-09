@@ -63,6 +63,45 @@
 - DeepSeek scene 顺序不匹配会失败。
 - DeepSeek duration 不匹配不会失败，统一由本地时长列表归一化。
 
+## Storyboard Contract 校验
+
+pipeline 在生成 storyboard 后、写入 `storyboard.json` 前执行 contract 校验。该校验是后续进入 TTS、图生视频和视频合成前的结构门禁。
+
+校验内容：
+
+- `scenes` 必须存在且是数组。
+- scene 数量必须等于本地图片数量。
+- scene 的 `image_name` 顺序必须与图片文件名自然排序一致。
+- 每个 scene 必须包含：
+  - `index`
+  - `role`
+  - `image_name`
+  - `image_path`
+  - `duration_seconds`
+  - `narration` 或 `mock_narration`
+- `index` 必须从 `1` 开始连续递增。
+- `image_path` 必须是字符串，且文件名与 `image_name` 一致。
+- `duration_seconds` 必须是正整数。
+- scene duration 总和必须等于 `target_duration_seconds`。
+- `storyboard.total_duration_seconds` 必须等于 `target_duration_seconds`。
+- `project_id` 和 `version` 必须存在。
+- narration 文本不能为空。
+- mock planner 中出现 mock 占位文案时记为 warning。
+- DeepSeek planner 中出现 mock 占位文案时记为 error。
+
+`pipeline_report.json` 记录：
+
+- `storyboard_contract_passed`
+- `storyboard_contract_errors`
+- `storyboard_contract_warnings`
+- `duration_sum`
+
+如果 contract 校验失败：
+
+- `validate_storyboard_contract` step 标记为 failed。
+- `pipeline_report.ok=false`。
+- pipeline 仍尽量写入 `pipeline_report.json`，方便定位问题。
+
 ## Planner 模式
 
 当前 pipeline 支持两个 planner：
