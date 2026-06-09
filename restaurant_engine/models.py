@@ -370,6 +370,33 @@ class CoverPlan:
     blocking: bool = False
 
 
+@dataclass(frozen=True)
+class CoverRenderWarning:
+    code: str
+    severity: str
+    message: str
+
+
+@dataclass
+class CoverRenderReport:
+    version: str
+    renderer: str
+    external_api_called: bool
+    render_status: str
+    cover_image_path: str | None
+    output_format: str
+    output_width: int
+    output_height: int
+    source_cover_plan_path: str | None
+    source_image_id: int | None
+    source_image_path: str | None
+    title_text: str
+    title_source: str
+    used_font: str
+    warnings: list[CoverRenderWarning] = field(default_factory=list)
+    blocking: bool = False
+
+
 @dataclass
 class PipelineReport:
     ok: bool
@@ -421,6 +448,15 @@ class PipelineReport:
     cover_title_user_selected: bool = False
     cover_requires_human_review: bool = False
     cover_blocking: bool = False
+    cover_render_report_path: str | None = None
+    cover_renderer: str = ""
+    cover_render_external_api_called: bool = False
+    cover_rendered_image_path: str | None = None
+    cover_render_output_width: int = 0
+    cover_render_output_height: int = 0
+    cover_render_source_image_id: int | None = None
+    cover_render_title_text: str = ""
+    cover_render_blocking: bool = False
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False

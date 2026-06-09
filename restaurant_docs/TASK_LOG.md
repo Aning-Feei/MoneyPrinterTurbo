@@ -2412,3 +2412,74 @@
 - `filename_fallback` provider。
 - `vision` 未授权受控失败。
 - `vision --allow-external-api` 当前未实现受控失败。
+
+## 第 4 阶段：本地封面图渲染 Renderer 骨架
+
+任务目标：
+- 在 `cover_plan.json` 已确定标题与封面候选图之后，生成本地封面图。
+- 使用用户选择标题：
+  - `selected_title.text`
+  - `cover_copy.title`
+- 使用用户上传图片：
+  - `selected_assets.primary_image_path`
+- 输出 `cover_image.png`。
+- 输出 `cover_render_report.json`。
+- 将封面渲染摘要写入 `pipeline_report.json`。
+
+实现内容：
+- 新增 `restaurant_engine/cover_renderer.py`。
+- 新增 cover render dataclass：
+  - `CoverRenderWarning`
+  - `CoverRenderReport`
+- pipeline 新增步骤：
+  - `render_cover_image`
+  - `write_cover_render_report`
+- pipeline 输出新增：
+  - `cover_render_report.json`
+  - `cover_image.png`
+- CLI 摘要新增：
+  - `cover_render_report`
+  - `cover_renderer`
+  - `cover_rendered_image_path`
+  - `cover_render_source_image_id`
+  - `cover_render_title_text`
+  - `cover_render_blocking`
+- 新增文档：
+  - `restaurant_docs/COVER_RENDER_SPEC.md`
+- 更新文档：
+  - `restaurant_docs/COVER_PLAN_SPEC.md`
+  - `restaurant_docs/PIPELINE_SPEC.md`
+  - `restaurant_docs/PROJECT_STATUS.md`
+  - `restaurant_docs/TASK_LOG.md`
+
+当前固定 contract：
+- `renderer=local_pillow`
+- `external_api_called=false`
+- `render_status=rendered`（成功时）
+- `output_format=png`
+- `output_width=1080`
+- `output_height=1920`
+- `title_source=selected_title`
+
+安全边界：
+- 本轮暂不 commit，等待用户确认后再提交。
+- 只使用当前环境已存在的 Pillow / PIL。
+- 不安装依赖。
+- 不复制或提交字体文件。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不调用任何 LLM。
+- 不调用视觉模型或 AI 图片生成。
+- 不读取 API Key。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 未修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
+
+待验证：
+- 默认 mock provider + `selected_cover_title_id`。
+- 默认 mock provider + 无用户选择标题。
+- 默认 mock provider + 无效标题选择。
+- `filename_fallback` provider。
+- `vision` 未授权受控失败。
+- `vision --allow-external-api` 当前未实现受控失败。

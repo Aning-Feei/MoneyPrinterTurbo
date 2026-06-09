@@ -25,6 +25,8 @@
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/image_understanding.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/rule_engine_report.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/cover_plan.json
+/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/cover_render_report.json
+/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/cover_image.png
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/narration_plan.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json
@@ -198,6 +200,61 @@ pipeline 在 `image_understanding.json` 生成后，会执行本地 deterministi
 详细字段和规则见：
 
 - `restaurant_docs/COVER_PLAN_SPEC.md`
+
+## Cover Render Contract
+
+第 4 阶段第 2 个任务开始后，pipeline 在 `cover_plan.json` 之后、`storyboard.json` 之前执行本地封面渲染，并输出 `cover_render_report.json` 与 `cover_image.png`。
+
+当前 renderer 边界：
+
+- `renderer=local_pillow`。
+- `external_api_called=false`。
+- 只使用当前环境已存在的 Pillow / PIL。
+- 不安装依赖。
+- 不读取 API Key。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不调用任何 LLM。
+- 不调用 AI 图片生成。
+- 不调用 TTS。
+- 不生成音频或视频。
+- 不修改 WebUI。
+
+渲染输入：
+
+- `cover_plan.selected_title.text`
+- `cover_plan.cover_copy.title`
+- `cover_plan.selected_assets.primary_image_path`
+
+渲染校验：
+
+- `cover_copy.title` 必须等于 `selected_title.text`。
+- `primary_image_path` 必须存在。
+- `primary_image_path` 必须来自 `image_understanding` 已知用户上传图片。
+
+成功输出：
+
+- `cover_image.png`
+- PNG 格式
+- 1080 x 1920
+- `cover_render_report.render_status=rendered`
+
+`pipeline_report.json` 记录：
+
+- `cover_render_report_path`
+- `cover_renderer`
+- `cover_render_external_api_called`
+- `cover_render_status`
+- `cover_rendered_image_path`
+- `cover_render_output_width`
+- `cover_render_output_height`
+- `cover_render_source_image_id`
+- `cover_render_title_text`
+- `cover_render_blocking`
+
+详细字段和规则见：
+
+- `restaurant_docs/COVER_RENDER_SPEC.md`
 
 ## Mock Storyboard 规则
 

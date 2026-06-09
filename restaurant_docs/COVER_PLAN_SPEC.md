@@ -4,6 +4,8 @@
 
 当前阶段只生成 `cover_plan.json`，用于描述封面应如何选择标题、图片、文案和布局。当前不渲染真实封面图片，不输出 PNG / JPG / JPEG / WebP 文件。
 
+第 4 阶段第 2 个任务开始后，真实本地渲染结果由 `cover_render_report.json` 记录；`cover_plan.json` 仍作为原始封面方案 contract 保持兼容。
+
 ## 当前范围
 
 - 根据用户输入的 `theme_text` 本地生成 3 个标题候选。
@@ -263,3 +265,25 @@ local_static
 - 用户确认标题和封面图片的正式输入方式。
 - 真实图片内容理解接入后降低人工复核风险。
 - 视觉风格模板与封面图片生成。
+
+## 本地渲染阶段
+
+第 4 阶段第 2 个任务新增本地封面渲染骨架：
+
+- 输入来自 `cover_plan.json`。
+- 使用 `selected_title.text` / `cover_copy.title` 绘制标题。
+- 使用 `selected_assets.primary_image_path` 指向的用户上传图片作为底图。
+- 输出 `cover_image.png`。
+- 输出 `cover_render_report.json`。
+- renderer 当前为 `local_pillow`。
+- 输出格式为 PNG，尺寸为 1080 x 1920。
+
+当前采用保守方案：
+
+- 不回写 `cover_plan.json` 的 `render_status`。
+- `cover_plan.json` 仍描述原始方案。
+- 真实渲染状态写入 `cover_render_report.json` 和 `pipeline_report.json`。
+
+详细规则见：
+
+- `restaurant_docs/COVER_RENDER_SPEC.md`

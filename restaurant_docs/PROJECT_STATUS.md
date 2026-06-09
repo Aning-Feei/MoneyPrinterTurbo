@@ -1809,3 +1809,58 @@ project.json
   - 不调用 TTS。
   - 不生成音频或视频。
   - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
+
+## 第 4 阶段继续：本地封面渲染 Renderer 骨架
+
+- 第 4 阶段第 2 个任务开始：本地封面图渲染 renderer 骨架。
+- 新增 `restaurant_engine/cover_renderer.py`。
+- 新增 `restaurant_docs/COVER_RENDER_SPEC.md`。
+- renderer 当前为 `local_pillow`。
+- 输入来自 `cover_plan.json`：
+  - `selected_title.text`
+  - `cover_copy.title`
+  - `selected_assets.primary_image_path`
+- 渲染输出：
+  - `cover_image.png`
+  - `cover_render_report.json`
+- 输出规格：
+  - PNG
+  - 1080 x 1920
+  - 9:16
+- pipeline 顺序调整为：
+  - load project
+  - validator
+  - scan images
+  - image_understanding
+  - rule_engine
+  - cover_plan
+  - cover_renderer
+  - storyboard
+  - narration_plan
+  - pipeline_report
+- `pipeline_report.json` 新增封面渲染字段：
+  - `cover_render_report_path`
+  - `cover_renderer`
+  - `cover_render_external_api_called`
+  - `cover_render_status`
+  - `cover_rendered_image_path`
+  - `cover_render_output_width`
+  - `cover_render_output_height`
+  - `cover_render_source_image_id`
+  - `cover_render_title_text`
+  - `cover_render_blocking`
+- 当前采用保守 contract：
+  - `cover_plan.json` 保持原始方案，不回写为 rendered。
+  - 渲染结果写入 `cover_render_report.json` 与 `pipeline_report.json`。
+- 当前边界：
+  - 本轮暂不 commit，等待用户确认后再提交。
+  - 只使用当前环境已存在的 Pillow / PIL。
+  - 不安装依赖。
+  - 不复制或提交字体文件。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用视觉模型或 AI 图片生成。
+  - 不读取 API Key。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 未修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
