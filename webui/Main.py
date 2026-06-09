@@ -516,6 +516,33 @@ def count_cjk_chars(text: str) -> int:
     return len(re.findall(r"[\u4e00-\u9fff]", text or ""))
 
 
+def filter_zh_cn_voice_names(voice_names) -> list[str]:
+    return [voice_name for voice_name in voice_names if "zh-CN" in str(voice_name)]
+
+
+def format_zh_cn_voice_label(voice_name: str) -> str:
+    label = str(voice_name or "")
+    if label.startswith("zh-CN-"):
+        label = label[len("zh-CN-") :]
+    return (
+        label.replace("Female", "女声")
+        .replace("Male", "男声")
+        .replace("女性", "女声")
+        .replace("男性", "男声")
+    )
+
+
+def get_default_zh_cn_voice_index(voice_names: list[str], saved_voice_name: str) -> int:
+    if saved_voice_name in voice_names:
+        return voice_names.index(saved_voice_name)
+
+    for index, voice_name in enumerate(voice_names):
+        if "zh-CN-XiaoxiaoNeural" in voice_name:
+            return index
+
+    return 0
+
+
 def strip_script_noise(text: str) -> str:
     if not text:
         return ""
@@ -664,6 +691,27 @@ def sync_video_script_input(max_chars: int | None = None):
     st.session_state["video_script"] = st.session_state.get(
         "video_script_input", clamped_script
     )
+
+
+def render_subtitle_settings(params: VideoParams):
+    st.write(tr("Subtitle Settings"))
+    params.subtitle_enabled = st.checkbox(tr("Enable Subtitles"), value=True)
+
+    params.font_name = "STHeitiMedium.ttc"
+    params.subtitle_position = "bottom"
+    params.text_fore_color = "#FFFFFF"
+    params.font_size = 50
+    params.stroke_color = "#000000"
+    params.stroke_width = 1.5
+    params.text_background_color = False
+    params.rounded_subtitle_background = False
+
+    config.ui["font_name"] = params.font_name
+    config.ui["subtitle_position"] = params.subtitle_position
+    config.ui["text_fore_color"] = params.text_fore_color
+    config.ui["font_size"] = params.font_size
+    config.ui["subtitle_background_enabled"] = False
+    config.ui["rounded_subtitle_background"] = False
 
 
 def install_weibo_style_script_limiter(min_chars: int, max_chars: int):
@@ -999,9 +1047,7 @@ def show_restaurant_mode_guidance(
     )
     st.write(f"当前本地图片数量：{image_count} 张")
 
-    if image_count == 0:
-        st.info("上传图片后自动计算每张图片展示时长。")
-    elif image_count < min_images:
+    if image_count < min_images and image_count > 0:
         st.error(
             f"餐厅视频模式需要至少 {min_images} 张图片；当前只有 {image_count} 张，生成会被阻止。"
         )
@@ -1014,12 +1060,6 @@ def show_restaurant_mode_guidance(
         total_image_duration = sum(clip_durations)
         set_params_runtime_field(params, "video_clip_durations", clip_durations)
         set_params_runtime_field(params, "video_clip_duration", max(clip_durations))
-        st.write(
-            "每张图片展示时长："
-            f"{', '.join(str(duration) for duration in clip_durations)} 秒"
-        )
-        st.write(f"预计图片总覆盖时长：{total_image_duration} 秒")
-        st.caption("餐厅模式会根据目标总时长和图片数量自动分配整数秒片段。")
     else:
         total_image_duration = None
 
@@ -1480,10 +1520,9 @@ if not config.app.get("hide_config", False):
             save_keys_to_config("pixabay_api_keys", pixabay_api_key)
 
 llm_provider = config.app.get("llm_provider", "").lower()
-panel = st.columns(3)
+panel = st.columns([1, 1])
 left_panel = panel[0]
 middle_panel = panel[1]
-right_panel = panel[2]
 
 params = VideoParams(video_subject="")
 set_params_runtime_field(params, "restaurant_mode", True)
@@ -1498,6 +1537,7 @@ with left_panel:
             tr("Video Subject"),
             key="video_subject",
         ).strip()
+        st.caption("输入餐厅名称、菜品类型或推广主题。")
 
         set_params_runtime_field(
             params,
@@ -1509,6 +1549,7 @@ with left_panel:
                 format_func=lambda seconds: f"{seconds}秒",
             ),
         )
+        st.caption("系统会按目标时长控制文案字数和图片展示节奏。")
         set_params_runtime_field(params, "video_language", "zh-CN")
         params.paragraph_number = 1
         params.video_script_prompt = ""
@@ -1517,9 +1558,7 @@ with left_panel:
         min_script_chars, max_script_chars = get_restaurant_script_char_range(
             params.target_duration_seconds
         )
-        st.caption(
-            f"AI 将按目标视频时长生成约 {min_script_chars}–{max_script_chars} 个中文字符的旁白文案。"
-        )
+        st.caption(f"AI 将生成约 {min_script_chars}–{max_script_chars} 个中文字符的旁白。")
 
         if st.button(
             tr("Generate Video Script and Keywords"), key="auto_generate_script"
@@ -1553,11 +1592,11 @@ with left_panel:
                         )
                         final_cjk_count = count_cjk_chars(script)
                         if adjustment_note == "local_extended":
-                            st.info("已根据目标时长自动扩写文案，使其更接近推荐字数范围。")
+                            st.info("已按目标时长自动扩写文案。")
                         elif adjustment_note == "local_trimmed":
-                            st.info("已根据目标时长自动压缩文案，使其更接近推荐字数范围。")
+                            st.info("已按目标时长自动压缩文案。")
                         if was_clamped:
-                            st.info("已根据目标时长自动截断文案，使其不超过最大允许字数。")
+                            st.info("已按目标时长自动截断文案。")
                         st.caption(f"AI 文案中文字符数：{final_cjk_count}")
                         if final_cjk_count < min_chars or final_cjk_count > max_chars:
                             st.error("AI 文案仍未完全落入推荐范围，请手动微调后再生成。")
@@ -1572,6 +1611,7 @@ with left_panel:
                             )
                     else:
                         st.session_state["video_terms"] = ", ".join(terms)
+                    st.success("AI 文案已生成，并已按目标时长校准。")
         if getattr(params, "restaurant_mode", False):
             if st.session_state.get("video_script_input", "") != st.session_state.get(
                 "video_script", ""
@@ -1581,6 +1621,7 @@ with left_panel:
                 '<div id="restaurant-video-script-anchor"></div>',
                 unsafe_allow_html=True,
             )
+        st.caption("可手动填写，也可使用 AI 生成。建议使用自然标点，字幕效果更稳定。")
         script_input = st.text_area(
             tr("Video Script"),
             key="video_script_input",
@@ -1729,24 +1770,27 @@ with middle_panel:
                 video_concat_modes[selected_index][1]
             )
 
-        # 视频转场模式
-        video_transition_modes = [
-            (tr("None"), VideoTransitionMode.none.value),
-            (tr("Shuffle"), VideoTransitionMode.shuffle.value),
-            (tr("FadeIn"), VideoTransitionMode.fade_in.value),
-            (tr("FadeOut"), VideoTransitionMode.fade_out.value),
-            (tr("SlideIn"), VideoTransitionMode.slide_in.value),
-            (tr("SlideOut"), VideoTransitionMode.slide_out.value),
-        ]
-        selected_index = st.selectbox(
-            tr("Video Transition Mode"),
-            options=range(len(video_transition_modes)),
-            format_func=lambda x: video_transition_modes[x][0],
-            index=0,
-        )
-        params.video_transition_mode = VideoTransitionMode(
-            video_transition_modes[selected_index][1]
-        )
+        if restaurant_mode:
+            params.video_transition_mode = VideoTransitionMode.none
+        else:
+            # 视频转场模式
+            video_transition_modes = [
+                (tr("None"), VideoTransitionMode.none.value),
+                (tr("Shuffle"), VideoTransitionMode.shuffle.value),
+                (tr("FadeIn"), VideoTransitionMode.fade_in.value),
+                (tr("FadeOut"), VideoTransitionMode.fade_out.value),
+                (tr("SlideIn"), VideoTransitionMode.slide_in.value),
+                (tr("SlideOut"), VideoTransitionMode.slide_out.value),
+            ]
+            selected_index = st.selectbox(
+                tr("Video Transition Mode"),
+                options=range(len(video_transition_modes)),
+                format_func=lambda x: video_transition_modes[x][0],
+                index=0,
+            )
+            params.video_transition_mode = VideoTransitionMode(
+                video_transition_modes[selected_index][1]
+            )
 
         if not restaurant_mode:
             video_aspect_ratios = [
@@ -1772,32 +1816,35 @@ with middle_panel:
                 index=0,
             )
 
-        with st.expander(tr("Advanced Video Settings"), expanded=False):
-            video_codec_options = [
-                ("libx264 (CPU)", "libx264"),
-                ("NVIDIA NVENC (h264_nvenc)", "h264_nvenc"),
-                ("AMD AMF (h264_amf)", "h264_amf"),
-                ("Intel QSV (h264_qsv)", "h264_qsv"),
-                ("Windows MediaFoundation (h264_mf)", "h264_mf"),
-                ("macOS VideoToolbox (h264_videotoolbox)", "h264_videotoolbox"),
-            ]
-            saved_video_codec = config.app.get("video_codec", "libx264")
-            saved_video_codec_values = [item[1] for item in video_codec_options]
-            if saved_video_codec not in saved_video_codec_values:
-                saved_video_codec = "libx264"
-            selected_codec_index = saved_video_codec_values.index(saved_video_codec)
-            selected_codec_index = st.selectbox(
-                tr("Video Encoder"),
-                options=range(len(video_codec_options)),
-                index=selected_codec_index,
-                format_func=lambda x: video_codec_options[x][0],
-                help=tr("Video Encoder Help"),
-            )
-            config.app["video_codec"] = video_codec_options[selected_codec_index][1]
+        video_codec_options = [
+            ("libx264 (CPU)", "libx264"),
+            ("NVIDIA NVENC (h264_nvenc)", "h264_nvenc"),
+            ("AMD AMF (h264_amf)", "h264_amf"),
+            ("Intel QSV (h264_qsv)", "h264_qsv"),
+            ("Windows MediaFoundation (h264_mf)", "h264_mf"),
+            ("macOS VideoToolbox (h264_videotoolbox)", "h264_videotoolbox"),
+        ]
+        saved_video_codec = config.app.get("video_codec", "libx264")
+        saved_video_codec_values = [item[1] for item in video_codec_options]
+        if saved_video_codec not in saved_video_codec_values:
+            saved_video_codec = "libx264"
+        selected_codec_index = saved_video_codec_values.index(saved_video_codec)
+        config.app["video_codec"] = saved_video_codec
+
+        if not restaurant_mode:
+            with st.expander(tr("Advanced Video Settings"), expanded=False):
+                selected_codec_index = st.selectbox(
+                    tr("Video Encoder"),
+                    options=range(len(video_codec_options)),
+                    index=selected_codec_index,
+                    format_func=lambda x: video_codec_options[x][0],
+                    help=tr("Video Encoder Help"),
+                )
+                config.app["video_codec"] = video_codec_options[selected_codec_index][1]
     with st.container(border=True):
         st.write(tr("Audio Settings"))
 
-        # 添加TTS服务器选择下拉框
+        # 餐厅默认流程隐藏 TTS 服务选择，内部继续沿用当前配置。
         tts_servers = [
             (voice.NO_VOICE_NAME, tr("No Voice")),
             ("azure-tts-v1", "Azure TTS V1"),
@@ -1809,20 +1856,12 @@ with middle_panel:
 
         # 获取保存的TTS服务器，默认为v1
         saved_tts_server = config.ui.get("tts_server", "azure-tts-v1")
-        saved_tts_server_index = 0
-        for i, (server_value, _) in enumerate(tts_servers):
-            if server_value == saved_tts_server:
-                saved_tts_server_index = i
-                break
-
-        selected_tts_server_index = st.selectbox(
-            tr("TTS Servers"),
-            options=range(len(tts_servers)),
-            format_func=lambda x: tts_servers[x][1],
-            index=saved_tts_server_index,
+        valid_tts_server_values = {server_value for server_value, _ in tts_servers}
+        selected_tts_server = (
+            saved_tts_server
+            if saved_tts_server in valid_tts_server_values
+            else "azure-tts-v1"
         )
-
-        selected_tts_server = tts_servers[selected_tts_server_index][0]
         config.ui["tts_server"] = selected_tts_server
 
         # 根据选择的TTS服务器获取声音列表
@@ -1856,54 +1895,41 @@ with middle_panel:
                     if "V2" not in v:
                         filtered_voices.append(v)
 
+        if (
+            getattr(params, "restaurant_mode", False)
+            and selected_tts_server != voice.NO_VOICE_NAME
+        ):
+            filtered_voices = filter_zh_cn_voice_names(filtered_voices)
+
         if selected_tts_server == voice.NO_VOICE_NAME:
             friendly_names = {voice.NO_VOICE_NAME: tr("No Voice")}
         else:
             friendly_names = {
-                v: v.replace("Female", tr("Female"))
-                .replace("Male", tr("Male"))
-                .replace("Neural", "")
-                for v in filtered_voices
+                v: format_zh_cn_voice_label(v) for v in filtered_voices
             }
 
         saved_voice_name = config.ui.get("voice_name", "")
-        saved_voice_name_index = 0
-
-        # 检查保存的声音是否在当前筛选的声音列表中
-        if saved_voice_name in friendly_names:
-            saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name)
-        else:
-            # 如果不在，则根据当前UI语言选择一个默认声音
-            for i, v in enumerate(filtered_voices):
-                if v.lower().startswith(st.session_state["ui_language"].lower()):
-                    saved_voice_name_index = i
-                    break
-
-        # 如果没有找到匹配的声音，使用第一个声音
-        if saved_voice_name_index >= len(friendly_names) and friendly_names:
-            saved_voice_name_index = 0
+        saved_voice_name_index = get_default_zh_cn_voice_index(
+            filtered_voices, saved_voice_name
+        )
 
         # 确保有声音可选
         if friendly_names:
-            selected_friendly_name = st.selectbox(
+            voice_name = st.selectbox(
                 tr("Speech Synthesis"),
-                options=list(friendly_names.values()),
+                options=list(friendly_names.keys()),
                 index=min(saved_voice_name_index, len(friendly_names) - 1)
                 if friendly_names
                 else 0,
+                format_func=lambda voice_name: friendly_names[voice_name],
             )
 
-            voice_name = list(friendly_names.keys())[
-                list(friendly_names.values()).index(selected_friendly_name)
-            ]
             params.voice_name = voice_name
             config.ui["voice_name"] = voice_name
         else:
             # 如果没有声音可选，显示提示信息
             st.warning(
-                tr(
-                    "No voices available for the selected TTS server. Please select another server."
-                )
+                "未找到 zh-CN 中文朗读声音，请检查 TTS 声音配置。"
             )
             params.voice_name = ""
             config.ui["voice_name"] = ""
@@ -2017,38 +2043,13 @@ with middle_panel:
 
             config.app["mimo_api_key"] = mimo_api_key
 
-        params.voice_volume = st.selectbox(
-            tr("Speech Volume"),
-            options=[0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0, 4.0, 5.0],
-            index=2,
-        )
-
-        params.voice_rate = st.selectbox(
-            tr("Speech Rate"),
-            options=[0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.5, 1.8, 2.0],
-            index=2,
-        )
-
-        custom_audio_file_types = ["mp3", "wav", "m4a", "aac", "flac", "ogg"]
-        uploaded_audio_file = st.file_uploader(
-            tr("Custom Audio File"),
-            type=custom_audio_file_types
-            + [file_type.upper() for file_type in custom_audio_file_types],
-            accept_multiple_files=False,
-            key="custom_audio_file_uploader",
-        )
-        if uploaded_audio_file:
-            st.audio(uploaded_audio_file, format="audio/mp3")
-            st.info(
-                tr(
-                    "Custom audio will be used directly. TTS synthesis will be skipped for this task."
-                )
-            )
+        params.voice_volume = 1.0
+        params.voice_rate = 1.0
+        uploaded_audio_file = None
 
         bgm_options = [
             (tr("No Background Music"), ""),
             (tr("Random Background Music"), "random"),
-            (tr("Custom Background Music"), "custom"),
         ]
         selected_index = st.selectbox(
             tr("Background Music"),
@@ -2074,124 +2075,13 @@ with middle_panel:
                 # 目录后再校验。服务层会统一限制目录和文件类型，避免任意路径读取。
                 params.bgm_file = custom_bgm_file.strip()
                 # st.write(f":red[已选择自定义背景音乐]：**{custom_bgm_file}**")
-        params.bgm_volume = st.selectbox(
-            tr("Background Music Volume"),
-            options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
-            index=2,
-        )
+        params.bgm_volume = 0.2
 
-with right_panel:
     with st.container(border=True):
-        st.write(tr("Subtitle Settings"))
-        params.subtitle_enabled = st.checkbox(tr("Enable Subtitles"), value=True)
-        font_names = get_all_fonts()
-        saved_font_name = config.ui.get("font_name", "MicrosoftYaHeiBold.ttc")
-        saved_font_name_index = 0
-        if saved_font_name in font_names:
-            saved_font_name_index = font_names.index(saved_font_name)
-        params.font_name = st.selectbox(
-            tr("Font"), font_names, index=saved_font_name_index
-        )
-        config.ui["font_name"] = params.font_name
+        render_subtitle_settings(params)
 
-        subtitle_positions = [
-            (tr("Top"), "top"),
-            (tr("Center"), "center"),
-            (tr("Bottom"), "bottom"),
-            (tr("Custom"), "custom"),
-        ]
-        saved_subtitle_position = config.ui.get("subtitle_position", "bottom")
-        saved_position_index = 2
-        for i, (_, pos_value) in enumerate(subtitle_positions):
-            if pos_value == saved_subtitle_position:
-                saved_position_index = i
-                break
-        selected_index = st.selectbox(
-            tr("Position"),
-            index=saved_position_index,
-            options=range(len(subtitle_positions)),
-            format_func=lambda x: subtitle_positions[x][0],
-        )
-        params.subtitle_position = subtitle_positions[selected_index][1]
-        config.ui["subtitle_position"] = params.subtitle_position
-
-        if params.subtitle_position == "custom":
-            saved_custom_position = config.ui.get("custom_position", 70.0)
-            custom_position = st.text_input(
-                tr("Custom Position (% from top)"),
-                value=str(saved_custom_position),
-                key="custom_position_input",
-            )
-            try:
-                params.custom_position = float(custom_position)
-                if params.custom_position < 0 or params.custom_position > 100:
-                    st.error(tr("Please enter a value between 0 and 100"))
-                else:
-                    config.ui["custom_position"] = params.custom_position
-            except ValueError:
-                st.error(tr("Please enter a valid number"))
-
-        font_cols = st.columns([0.3, 0.7])
-        with font_cols[0]:
-            saved_text_fore_color = config.ui.get("text_fore_color", "#FFFFFF")
-            params.text_fore_color = st.color_picker(
-                tr("Font Color"), saved_text_fore_color
-            )
-            config.ui["text_fore_color"] = params.text_fore_color
-
-        with font_cols[1]:
-            saved_font_size = config.ui.get("font_size", 60)
-            params.font_size = st.slider(tr("Font Size"), 30, 100, saved_font_size)
-            config.ui["font_size"] = params.font_size
-
-        stroke_cols = st.columns([0.3, 0.7])
-        with stroke_cols[0]:
-            params.stroke_color = st.color_picker(tr("Stroke Color"), "#000000")
-        with stroke_cols[1]:
-            params.stroke_width = st.slider(tr("Stroke Width"), 0.0, 10.0, 1.5)
-
-        subtitle_bg_cols = st.columns([0.4, 0.6])
-        saved_subtitle_background_enabled = config.ui.get(
-            "subtitle_background_enabled", True
-        )
-        with subtitle_bg_cols[0]:
-            subtitle_background_enabled = st.checkbox(
-                tr("Enable Subtitle Background"),
-                value=saved_subtitle_background_enabled,
-            )
-        config.ui["subtitle_background_enabled"] = subtitle_background_enabled
-        if subtitle_background_enabled:
-            with subtitle_bg_cols[1]:
-                saved_subtitle_background_color = config.ui.get(
-                    "subtitle_background_color", "#000000"
-                )
-                params.text_background_color = st.color_picker(
-                    tr("Subtitle Background Color"),
-                    saved_subtitle_background_color,
-                )
-                config.ui["subtitle_background_color"] = params.text_background_color
-        else:
-            params.text_background_color = False
-
-        saved_rounded_subtitle_background = config.ui.get(
-            "rounded_subtitle_background", False
-        )
-        # 背景关闭时，圆角背景没有可渲染的底色。这里禁用控件并保留原配置，
-        # 用户下次重新开启字幕背景后，可以继续使用之前保存的圆角偏好。
-        params.rounded_subtitle_background = st.checkbox(
-            tr("Rounded Subtitle Background"),
-            value=(
-                saved_rounded_subtitle_background
-                if subtitle_background_enabled
-                else False
-            ),
-            help=tr("Rounded Subtitle Background Help"),
-            disabled=not subtitle_background_enabled,
-        )
-        if subtitle_background_enabled:
-            config.ui["rounded_subtitle_background"] = (
-                params.rounded_subtitle_background
-            )
+show_api_key_management = False
+if show_api_key_management:
     with st.expander(tr("Click to show API Key management"), expanded=False):
         st.subheader(tr("Manage Pexels and Pixabay API Keys"))
 
@@ -2219,7 +2109,9 @@ with right_panel:
 
             if config.app["pexels_api_keys"]:
                 delete_key = st.selectbox(
-                    tr("Select Pexels API Key to delete"), config.app["pexels_api_keys"], key="pexels_delete_key"
+                    tr("Select Pexels API Key to delete"),
+                    config.app["pexels_api_keys"],
+                    key="pexels_delete_key",
                 )
                 if st.button(tr("Delete Selected Pexels API Key")):
                     config.app["pexels_api_keys"].remove(delete_key)
@@ -2249,7 +2141,9 @@ with right_panel:
 
             if config.app["pixabay_api_keys"]:
                 delete_key = st.selectbox(
-                    tr("Select Pixabay API Key to delete"), config.app["pixabay_api_keys"], key="pixabay_delete_key"
+                    tr("Select Pixabay API Key to delete"),
+                    config.app["pixabay_api_keys"],
+                    key="pixabay_delete_key",
                 )
                 if st.button(tr("Delete Selected Pixabay API Key")):
                     config.app["pixabay_api_keys"].remove(delete_key)
