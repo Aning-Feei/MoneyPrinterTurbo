@@ -684,7 +684,7 @@ TTS contract 当前规则：
 4. WebUI 调用 `restaurant_engine.storyboard_planner.build_mock_storyboard` 本地生成 mock 视频文案。
 5. 标题候选显示在按钮下方，用户选择 `selected_cover_title_id`。
 6. 视频文案显示在标题候选下方。
-7. 用户上传 1 张或多张图片。
+7. 用户在中间列 `视频设置` 区域上传 1 张或多张图片。
 8. 用户选择 `selected_cover_image_id` 或选择自动。
 9. WebUI 在仓库外临时目录生成 `project.json`。
 10. WebUI 调用 `restaurant_engine.pipeline.run_pipeline`。
@@ -712,7 +712,10 @@ pipeline_mode=cover_prototype
 - `文案设置` 中主按钮显示为 `生成视频标题/视频文案`。
 - 点击后本地生成 3 个标题候选，并继续执行原视频文案生成逻辑。
 - 标题候选显示在该按钮下方，默认选择 `title_1`。
-- 封面验证区不再提供独立主题输入或独立标题/文案生成按钮，只复用文案设置中的 `video_subject` 和 `selected_cover_title_id`。
+- `生成封面` 按钮位于中间列 `视频设置` 区域的 `当前本地图片数量` 下方。
+- 封面验证区不再提供独立主题输入、独立标题/文案生成按钮或独立图片上传入口，只复用文案设置中的 `video_subject` / `selected_cover_title_id` 和视频设置中的本地上传图片。
+- 未上传图片时点击 `生成封面`，WebUI 显示受控提示并且不调用 pipeline。
+- 未生成并选择标题时点击 `生成封面`，WebUI 显示受控提示并且不调用 pipeline。
 
 本地标题候选质量修正：
 

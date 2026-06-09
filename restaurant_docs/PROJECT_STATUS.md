@@ -2021,3 +2021,19 @@ project.json
   - 不使用 AI 图片生成。
 - WebUI 继续复用 `restaurant_engine.cover_planner.build_title_candidates`，pipeline 和 WebUI 标题候选保持一致。
 - 当前仍不进入第 5 阶段，不生成音频或视频，本轮暂不 commit。
+
+## 第 4 阶段：WebUI 视频设置区生成封面入口
+
+- 将 `生成封面` 按钮移动到中间列 `视频设置` 区域。
+- 按钮位于 `当前本地图片数量：X 张` 下方。
+- 封面生成复用视频设置中的本地上传图片，不再提供独立封面图片上传入口。
+- 保留文案设置中的 `生成视频标题/视频文案` 和标题候选选择。
+- 点击 `生成封面` 时：
+  - 未上传图片：显示受控提示，不调用 pipeline。
+  - 未生成并选择标题：显示受控提示，不调用 pipeline。
+  - 图片和标题均满足时：调用本地 `restaurant_engine` cover pipeline，生成 `cover_image.png` 和摘要。
+- 继续固定使用本地 mock / local renderer：
+  - `planner=mock`
+  - `image_understanding_provider=mock`
+  - `allow_external_api=false`
+- 本轮只调整 WebUI 展示与本地封面入口，不调用 DeepSeek、不调用外部 API、不生成音频或视频、不修改 MoneyPrinterTurbo 视频生成核心。

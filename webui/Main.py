@@ -600,79 +600,49 @@ def display_safe_path(path: str | None) -> str:
     return basename
 
 
-def render_restaurant_cover_prototype(theme_text: str):
-    st.divider()
-    st.write("封面生成验证（Prototype）")
-    st.caption(
-        "使用上方生成并选中的视频标题生成封面图。当前仅用于本地验证，不是最终正式产品。"
-    )
+def render_restaurant_cover_prototype(theme_text: str, uploaded_image_files=None):
+    cover_image_files = [
+        uploaded_file
+        for uploaded_file in (uploaded_image_files or [])
+        if os.path.splitext(getattr(uploaded_file, "name", ""))[1].lower()
+        in RESTAURANT_COVER_IMAGE_SUFFIXES
+    ]
 
     candidates = st.session_state.get("restaurant_cover_title_candidates", [])
-    if candidates:
-        selected_title_id = st.session_state.get(
-            "restaurant_cover_selected_title_id", candidates[0]["title_id"]
-        )
-        st.caption(
-            f"当前封面标题：{selected_cover_title_text(candidates, selected_title_id)}"
-        )
-    else:
-        st.info(
-            "尚未生成视频标题/视频文案。生成封面时会默认生成候选并选择 title_1，请人工确认。"
-        )
-
-    uploaded_image_files = st.file_uploader(
-        "上传餐厅图片",
-        type=["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG", "WEBP"],
-        accept_multiple_files=True,
-        key="restaurant_cover_uploaded_images",
-    )
 
     image_choice_options = ["auto"]
     image_choice_labels = {"auto": "自动选择"}
-    for index, uploaded_file in enumerate(uploaded_image_files or [], start=1):
+    for index, uploaded_file in enumerate(cover_image_files, start=1):
         option = f"image_{index:03d}"
         image_choice_options.append(option)
         image_choice_labels[option] = f"上传图片 {index}：{uploaded_file.name}"
-
-    selected_image_option = st.selectbox(
-        "选择封面图片",
-        options=image_choice_options,
-        index=0,
-        format_func=lambda option: image_choice_labels.get(option, option),
-        key="restaurant_cover_selected_image_id",
+    selected_image_option = st.session_state.get(
+        "restaurant_cover_selected_image_id", "auto"
     )
+    if selected_image_option not in image_choice_options:
+        selected_image_option = "auto"
 
-    if uploaded_image_files:
-        preview_cols = st.columns(min(4, len(uploaded_image_files)))
-        for index, uploaded_file in enumerate(uploaded_image_files[:4], start=1):
-            with preview_cols[(index - 1) % len(preview_cols)]:
-                st.image(uploaded_file, caption=f"上传图片 {index}", use_container_width=True)
-
-    if st.button("生成封面图", key="restaurant_cover_render_button"):
-        if not uploaded_image_files:
-            st.warning("请先上传至少 1 张餐厅图片。")
+    if st.button("生成封面", key="restaurant_cover_render_button"):
+        if not cover_image_files:
+            st.warning("请先上传图片。")
             return
 
         active_candidates = st.session_state.get("restaurant_cover_title_candidates")
-        if not active_candidates:
-            active_candidates = generate_cover_title_candidates_for_subject(
-                theme_text, reset_selection=True
-            )
-            video_script = build_cover_prototype_video_script(theme_text, active_candidates)
-            st.session_state["restaurant_cover_video_script"] = video_script
-            st.info("未手动选择标题，已默认选择第一个标题，请人工确认。")
+        selected_title_id = st.session_state.get("restaurant_cover_selected_title_id")
+        active_title_ids = [
+            candidate.get("title_id") for candidate in (active_candidates or [])
+        ]
+        if not active_candidates or selected_title_id not in active_title_ids:
+            st.warning("请先生成视频标题/视频文案并选择标题。")
+            return
 
-        selected_title_id = st.session_state.get(
-            "restaurant_cover_selected_title_id",
-            active_candidates[0]["title_id"],
-        )
         selected_title_text = selected_cover_title_text(active_candidates, selected_title_id)
         selected_image_id = None if selected_image_option == "auto" else selected_image_option
 
         try:
             run_dir = create_cover_prototype_run_dir()
             images_dir = os.path.join(run_dir, "images")
-            save_cover_prototype_uploads(uploaded_image_files, images_dir)
+            save_cover_prototype_uploads(cover_image_files, images_dir)
             project_path = write_cover_prototype_project(
                 run_dir=run_dir,
                 theme_text=theme_text,
@@ -699,6 +669,22 @@ def render_restaurant_cover_prototype(theme_text: str):
             }
         except Exception as exc:
             st.error(f"封面生成失败：{str(exc)[:240]}")
+
+    if candidates:
+        selected_title_id = st.session_state.get(
+            "restaurant_cover_selected_title_id", candidates[0]["title_id"]
+        )
+        st.caption(
+            f"当前封面标题：{selected_cover_title_text(candidates, selected_title_id)}"
+        )
+
+    st.selectbox(
+        "选择封面图片",
+        options=image_choice_options,
+        index=image_choice_options.index(selected_image_option),
+        format_func=lambda option: image_choice_labels.get(option, option),
+        key="restaurant_cover_selected_image_id",
+    )
 
     result = st.session_state.get("restaurant_cover_last_result")
     if result:
@@ -1370,6 +1356,7 @@ def show_restaurant_mode_guidance(
     params: VideoParams,
     uploaded_files,
     persisted_materials,
+    after_image_count=None,
 ) -> dict[str, object]:
     target_duration = params.target_duration_seconds
     min_images, max_images = get_restaurant_image_range(target_duration)
@@ -1385,6 +1372,8 @@ def show_restaurant_mode_guidance(
         f"目标 {target_duration} 秒建议图片数量：{min_images}–{max_images} 张"
     )
     st.write(f"当前本地图片数量：{image_count} 张")
+    if after_image_count:
+        after_image_count()
 
     if image_count < min_images and image_count > 0:
         st.error(
@@ -2031,8 +2020,6 @@ with left_panel:
             params.video_terms = st.text_area(
                 tr("Video Keywords"), value=st.session_state["video_terms"]
             )
-        if getattr(params, "restaurant_mode", False):
-            render_restaurant_cover_prototype(params.video_subject)
 
 with middle_panel:
     with st.container(border=True):
@@ -2081,6 +2068,9 @@ with middle_panel:
                 params=params,
                 uploaded_files=uploaded_files,
                 persisted_materials=st.session_state["local_video_materials"],
+                after_image_count=lambda: render_restaurant_cover_prototype(
+                    params.video_subject, uploaded_files
+                ),
             )
             config.app["video_source"] = "local"
         else:
