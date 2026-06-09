@@ -2250,3 +2250,53 @@
   - 当前 `vision` provider 尚未实现，不会调用外部 API。
   - 本轮不调用 DeepSeek、不调用 TTS、不调用视觉模型、不生成音频、不生成视频。
   - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。
+
+## 本地规则引擎骨架
+
+- 本次目标：
+  - 在 `image_understanding.json` 之后、`storyboard.json` 之前新增本地 rule engine。
+  - 输出 `rule_engine_report.json`。
+  - 将 rule engine 摘要写入 `pipeline_report.json`。
+- 新增/调整内容：
+  - 新增 `restaurant_engine/rule_engine.py`。
+  - 新增 rule engine 相关模型：
+    - `RuleFinding`
+    - `RuleEngineSummary`
+    - `RuleAssetGroups`
+    - `StoryboardHints`
+    - `RuleEngineReport`
+  - pipeline 新增 `build_rule_engine_report` step。
+  - pipeline 新增 `write_rule_engine_report` step。
+  - CLI 摘要新增 rule engine 状态。
+  - 新增 `restaurant_docs/RULE_ENGINE_SPEC.md`。
+- 当前 contract：
+  - `engine=local_static`
+  - `external_api_called=false`
+  - `blocking=false`
+  - 只消费 `image_understanding`。
+  - 不重新读取文件名。
+  - 不读取图片像素内容。
+  - 不调用任何外部 API。
+- 当前 findings：
+  - `NO_CONTENT_BASED_UNDERSTANDING`：mock provider，仅开发占位。
+  - `FILENAME_FALLBACK_USED`：filename fallback provider，仅开发兜底。
+  - `UNKNOWN_IMAGE_UNDERSTANDING_PROVIDER`：未知 provider，需要人工复核。
+- 当前输出：
+  - `summary.image_count`
+  - `summary.category_counts`
+  - `summary.has_content_based_understanding`
+  - `summary.has_filename_fallback`
+  - `asset_groups.hero_candidates`
+  - `asset_groups.dish_candidates`
+  - `asset_groups.interior_candidates`
+  - `asset_groups.fallback_candidates`
+  - `storyboard_hints.preferred_opening_image_id`
+  - `storyboard_hints.avoid_repeating_same_image`
+  - `storyboard_hints.requires_human_review`
+- 当前边界：
+  - 未调用 DeepSeek。
+  - 未调用任何外部 API。
+  - 未调用 TTS。
+  - 未生成音频。
+  - 未生成视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。

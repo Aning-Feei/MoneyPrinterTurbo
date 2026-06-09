@@ -23,6 +23,7 @@
 
 ```text
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/image_understanding.json
+/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/rule_engine_report.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/narration_plan.json
 /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json
@@ -69,6 +70,51 @@ pipeline 在 validator 通过并完成本地图片扫描后，会先生成 `imag
 
 - `restaurant_docs/IMAGE_UNDERSTANDING_SPEC.md`
 - `restaurant_docs/IMAGE_UNDERSTANDING_PROVIDER_SPEC.md`
+
+## Rule Engine Contract
+
+pipeline 在 `image_understanding.json` 生成后，会执行本地 deterministic rule engine，并输出 `rule_engine_report.json`。该步骤位于图片理解之后、storyboard planning 之前，用于把上游图片理解结果整理为后续 storyboard planner 可消费的本地决策信号。
+
+当前规则引擎边界：
+
+- `engine=local_static`。
+- `external_api_called=false`。
+- 只消费 `image_understanding` 的结构化结果。
+- 不重新读取文件名。
+- 不读取图片像素内容。
+- 不调用视觉模型、OCR、DeepSeek、TTS 或任何外部 API。
+- 当前 `blocking=false`，findings 只作为提示和人工复核信号。
+
+`rule_engine_report.json` 顶层字段：
+
+- `version`
+- `engine`
+- `external_api_called`
+- `image_understanding_provider`
+- `image_understanding_analysis_source`
+- `summary`
+- `findings`
+- `asset_groups`
+- `storyboard_hints`
+- `blocking`
+
+当前 provider 行为：
+
+- `mock`：输出 `NO_CONTENT_BASED_UNDERSTANDING` warning，标记需要人工复核。
+- `filename_fallback`：输出 `FILENAME_FALLBACK_USED` warning，明确这只是开发兜底，不是正式图片内容理解。
+- `vision`：未来真实图片内容理解入口；当前未实现，不会进入规则引擎成功路径。
+
+`pipeline_report.json` 记录：
+
+- `rule_engine_report_path`
+- `rule_engine_external_api_called`
+- `rule_engine_findings_count`
+- `rule_engine_blocking`
+- `rule_engine_version`
+
+详细字段和规则见：
+
+- `restaurant_docs/RULE_ENGINE_SPEC.md`
 
 ## Mock Storyboard 规则
 

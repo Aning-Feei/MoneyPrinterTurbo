@@ -1686,3 +1686,41 @@ project.json
   - 不调用 TTS。
   - 不生成音频或视频。
   - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
+
+## 第 3 阶段补充：本地规则引擎骨架
+
+- 开始实现本地 deterministic rule engine contract。
+- 规则引擎位置：
+  - `image_understanding.json` 之后。
+  - `storyboard.json` 之前。
+- 新增输出：
+  - `rule_engine_report.json`
+- 当前规则引擎：
+  - `engine=local_static`
+  - `external_api_called=false`
+  - 只消费 `image_understanding` 的结构化结果。
+  - 不重新读取文件名。
+  - 不读取图片像素内容。
+  - 不调用视觉模型、OCR、DeepSeek、TTS 或任何外部 API。
+- 当前输出字段：
+  - `summary`
+  - `findings`
+  - `asset_groups`
+  - `storyboard_hints`
+  - `blocking`
+- 当前 provider 行为：
+  - `mock` 输出 `NO_CONTENT_BASED_UNDERSTANDING` warning。
+  - `filename_fallback` 输出 `FILENAME_FALLBACK_USED` warning。
+  - 两者当前都不阻断 pipeline，但会标记需要人工复核。
+- `pipeline_report.json` 新增：
+  - `rule_engine_report_path`
+  - `rule_engine_external_api_called`
+  - `rule_engine_findings_count`
+  - `rule_engine_blocking`
+  - `rule_engine_version`
+- 当前边界：
+  - 不生成音频。
+  - 不生成视频。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。

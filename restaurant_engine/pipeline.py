@@ -12,6 +12,7 @@ from .models import (
     NarrationPlan,
     PipelineReport,
     PipelineStep,
+    RuleEngineReport,
 )
 from .image_understanding import (
     SUPPORTED_IMAGE_UNDERSTANDING_PROVIDERS,
@@ -34,11 +35,13 @@ from .narration_plan import (
     build_narration_plan,
     validate_tts_contract,
 )
+from .rule_engine import build_rule_engine_report
 from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
 
 STORYBOARD_FILE_NAME = "storyboard.json"
 IMAGE_UNDERSTANDING_FILE_NAME = "image_understanding.json"
+RULE_ENGINE_REPORT_FILE_NAME = "rule_engine_report.json"
 NARRATION_PLAN_FILE_NAME = "narration_plan.json"
 PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
 
@@ -63,6 +66,8 @@ def run_pipeline(
     image_files: list[ImageFile] = []
     image_understanding: ImageUnderstandingReport | None = None
     image_understanding_path: str | None = None
+    rule_engine_report: RuleEngineReport | None = None
+    rule_engine_report_path: str | None = None
     storyboard_path: str | None = None
     narration_plan_path: str | None = None
     validation_passed = False
@@ -374,12 +379,77 @@ def run_pipeline(
             )
         )
 
+    if image_understanding is not None and not image_understanding.errors:
+        try:
+            rule_engine_report = build_rule_engine_report(image_understanding)
+            steps.append(
+                PipelineStep(
+                    name="build_rule_engine_report",
+                    status="passed",
+                    message=(
+                        "Built local rule engine report with "
+                        f"{len(rule_engine_report.findings)} findings."
+                    ),
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("build_rule_engine_report_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="build_rule_engine_report",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="build_rule_engine_report",
+                status="skipped",
+                message="Skipped because image understanding did not pass.",
+            )
+        )
+
+    if rule_engine_report is not None:
+        try:
+            rule_engine_report_file = write_rule_engine_report(
+                output_dir,
+                rule_engine_report,
+            )
+            rule_engine_report_path = str(rule_engine_report_file)
+            steps.append(
+                PipelineStep(
+                    name="write_rule_engine_report",
+                    status="passed",
+                    message=f"Wrote rule engine report: {rule_engine_report_file}",
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("write_rule_engine_report_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="write_rule_engine_report",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="write_rule_engine_report",
+                status="skipped",
+                message="Skipped because no rule engine report was built.",
+            )
+        )
+
     can_plan_storyboard = can_plan_storyboard and not _has_failed_step(
         steps,
         {
             "select_image_understanding_provider",
             "build_image_understanding",
             "write_image_understanding",
+            "build_rule_engine_report",
+            "write_rule_engine_report",
         },
     )
 
@@ -700,6 +770,7 @@ def run_pipeline(
         image_count=len(image_files),
         image_understanding_path=image_understanding_path,
         image_understanding_provider=image_provider_name,
+        rule_engine_report_path=rule_engine_report_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
@@ -707,6 +778,7 @@ def run_pipeline(
         external_api_allowed=allow_external_api,
         external_api_called=external_api_called,
         image_understanding=image_understanding,
+        rule_engine_report=rule_engine_report,
         storyboard=storyboard,
         storyboard_contract_report=storyboard_contract_report,
         storyboard_quality_report=storyboard_quality_report,
@@ -733,6 +805,7 @@ def run_pipeline(
             image_count=len(image_files),
             image_understanding_path=image_understanding_path,
             image_understanding_provider=image_provider_name,
+            rule_engine_report_path=rule_engine_report_path,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
@@ -740,6 +813,7 @@ def run_pipeline(
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
             image_understanding=image_understanding,
+            rule_engine_report=rule_engine_report,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
@@ -766,6 +840,7 @@ def run_pipeline(
             image_count=len(image_files),
             image_understanding_path=image_understanding_path,
             image_understanding_provider=image_provider_name,
+            rule_engine_report_path=rule_engine_report_path,
             storyboard_path=storyboard_path,
             narration_plan_path=narration_plan_path,
             validation_passed=validation_passed,
@@ -773,6 +848,7 @@ def run_pipeline(
             external_api_allowed=allow_external_api,
             external_api_called=external_api_called,
             image_understanding=image_understanding,
+            rule_engine_report=rule_engine_report,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
             storyboard_quality_report=storyboard_quality_report,
@@ -850,6 +926,17 @@ def write_image_understanding(
     return output_path
 
 
+def write_rule_engine_report(
+    output_dir: str | Path,
+    rule_engine_report: RuleEngineReport,
+) -> Path:
+    output_path = (
+        Path(output_dir).expanduser().resolve() / RULE_ENGINE_REPORT_FILE_NAME
+    )
+    _write_json(output_path, asdict(rule_engine_report))
+    return output_path
+
+
 def write_pipeline_report(output_dir: str | Path, report: PipelineReport) -> Path:
     report_path = Path(output_dir).expanduser().resolve() / PIPELINE_REPORT_FILE_NAME
     _write_json(report_path, pipeline_report_to_dict(report))
@@ -880,6 +967,7 @@ def _build_report(
     image_count: int,
     image_understanding_path: str | None,
     image_understanding_provider: str,
+    rule_engine_report_path: str | None,
     storyboard_path: str | None,
     narration_plan_path: str | None,
     validation_passed: bool,
@@ -887,6 +975,7 @@ def _build_report(
     external_api_allowed: bool,
     external_api_called: bool,
     image_understanding,
+    rule_engine_report,
     storyboard,
     storyboard_contract_report,
     storyboard_quality_report,
@@ -909,6 +998,7 @@ def _build_report(
         image_count=image_count,
         image_understanding_path=image_understanding_path,
         image_understanding_provider=image_understanding_provider,
+        rule_engine_report_path=rule_engine_report_path,
         storyboard_path=storyboard_path,
         narration_plan_path=narration_plan_path,
         validation_passed=validation_passed,
@@ -998,6 +1088,22 @@ def _build_report(
             dict(image_understanding.category_counts)
             if image_understanding is not None
             else {}
+        ),
+        rule_engine_external_api_called=(
+            rule_engine_report.external_api_called
+            if rule_engine_report is not None
+            else False
+        ),
+        rule_engine_findings_count=(
+            len(rule_engine_report.findings)
+            if rule_engine_report is not None
+            else 0
+        ),
+        rule_engine_blocking=(
+            rule_engine_report.blocking if rule_engine_report is not None else False
+        ),
+        rule_engine_version=(
+            rule_engine_report.version if rule_engine_report is not None else ""
         ),
         planner=planner,
         external_api_allowed=external_api_allowed,

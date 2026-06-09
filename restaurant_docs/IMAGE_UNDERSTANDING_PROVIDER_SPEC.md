@@ -77,6 +77,19 @@ python3 -m restaurant_engine.pipeline_project \
 - `filename_fallback`
 - 未来 `vision`
 
+## 下游 Rule Engine
+
+第 3 阶段新增本地 deterministic rule engine。它只消费 `image_understanding` 的结构化结果，不重新读取文件名，也不读取图片像素内容。
+
+- `mock` provider 会让规则引擎输出 `NO_CONTENT_BASED_UNDERSTANDING` warning。
+- `filename_fallback` provider 会让规则引擎输出 `FILENAME_FALLBACK_USED` warning。
+- 这两类结果当前都不阻断 pipeline，但会标记需要人工复核。
+- 未来 `vision` provider 接入真实图片内容理解后，规则引擎才可基于内容识别结果输出更可靠的 storyboard hints。
+
+规则引擎详细 contract 见：
+
+- `restaurant_docs/RULE_ENGINE_SPEC.md`
+
 ## 正式 Vision Provider 目标
 
 未来 `vision` provider 应基于图片内容完成：

@@ -231,6 +231,51 @@ class ImageUnderstandingReport:
     notes: str = ""
 
 
+@dataclass(frozen=True)
+class RuleFinding:
+    code: str
+    severity: str
+    message: str
+    image_ids: list[int] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class RuleEngineSummary:
+    image_count: int
+    category_counts: dict[str, int] = field(default_factory=dict)
+    has_content_based_understanding: bool = False
+    has_filename_fallback: bool = False
+
+
+@dataclass(frozen=True)
+class RuleAssetGroups:
+    hero_candidates: list[int] = field(default_factory=list)
+    dish_candidates: list[int] = field(default_factory=list)
+    interior_candidates: list[int] = field(default_factory=list)
+    fallback_candidates: list[int] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class StoryboardHints:
+    preferred_opening_image_id: int | None = None
+    avoid_repeating_same_image: bool = True
+    requires_human_review: bool = True
+
+
+@dataclass
+class RuleEngineReport:
+    version: str
+    engine: str
+    external_api_called: bool
+    image_understanding_provider: str
+    image_understanding_analysis_source: str
+    summary: RuleEngineSummary
+    findings: list[RuleFinding] = field(default_factory=list)
+    asset_groups: RuleAssetGroups = field(default_factory=RuleAssetGroups)
+    storyboard_hints: StoryboardHints = field(default_factory=StoryboardHints)
+    blocking: bool = False
+
+
 @dataclass
 class PipelineReport:
     ok: bool
@@ -241,6 +286,7 @@ class PipelineReport:
     image_count: int
     image_understanding_path: str | None
     image_understanding_provider: str
+    rule_engine_report_path: str | None
     storyboard_path: str | None
     narration_plan_path: str | None
     validation_passed: bool
@@ -265,6 +311,10 @@ class PipelineReport:
     allowed_image_count: int = 0
     rejected_image_count: int = 0
     image_category_counts: dict[str, int] = field(default_factory=dict)
+    rule_engine_external_api_called: bool = False
+    rule_engine_findings_count: int = 0
+    rule_engine_blocking: bool = False
+    rule_engine_version: str = ""
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False
