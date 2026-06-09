@@ -1,0 +1,431 @@
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+
+from .models import (
+    ImageFile,
+    PipelineReport,
+    PipelineStep,
+    Storyboard,
+    StoryboardScene,
+)
+from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
+
+
+MOCK_SCENE_DURATION_SECONDS = 5
+STORYBOARD_FILE_NAME = "storyboard.json"
+PIPELINE_REPORT_FILE_NAME = "pipeline_report.json"
+
+
+def run_pipeline(project_json_path: str | Path) -> PipelineReport:
+    """Run the stage-2 mock pipeline for a restaurant project."""
+    project_file = Path(project_json_path).expanduser().resolve()
+    project_root = resolve_project_root(project_file)
+    output_dir = project_root / "output"
+
+    project_config: dict[str, Any] = {}
+    image_dir: Path | None = None
+    image_files: list[ImageFile] = []
+    storyboard_path: str | None = None
+    validation_passed = False
+    issues: list[dict[str, Any]] = []
+    steps: list[PipelineStep] = []
+
+    try:
+        project_config = load_project_json(project_file)
+        steps.append(
+            PipelineStep(
+                name="load_project_json",
+                status="passed",
+                message=f"Loaded project JSON: {project_file}",
+            )
+        )
+    except Exception as exc:
+        issues.append(_pipeline_issue("load_project_json_failed", str(exc)))
+        steps.append(
+            PipelineStep(
+                name="load_project_json",
+                status="failed",
+                message=str(exc),
+            )
+        )
+
+    try:
+        validation_report = validate_project(project_file)
+        validation_data = report_to_dict(validation_report)
+        validation_passed = validation_report.passed
+        issues.extend(validation_data.get("issues", []))
+        steps.append(
+            PipelineStep(
+                name="validate_project",
+                status="passed" if validation_report.passed else "failed",
+                message=(
+                    "Validation passed"
+                    if validation_report.passed
+                    else "Validation completed with errors"
+                ),
+            )
+        )
+    except Exception as exc:
+        issues.append(_pipeline_issue("validate_project_failed", str(exc)))
+        steps.append(
+            PipelineStep(
+                name="validate_project",
+                status="failed",
+                message=str(exc),
+            )
+        )
+
+    try:
+        image_dir = resolve_image_dir(project_config, project_file)
+        steps.append(
+            PipelineStep(
+                name="resolve_image_dir",
+                status="passed",
+                message=f"Resolved image directory: {image_dir}",
+            )
+        )
+    except Exception as exc:
+        issues.append(_pipeline_issue("resolve_image_dir_failed", str(exc)))
+        steps.append(
+            PipelineStep(
+                name="resolve_image_dir",
+                status="failed",
+                message=str(exc),
+            )
+        )
+
+    try:
+        if image_dir is None:
+            raise ValueError("Image directory is not resolved.")
+        image_files = scan_image_files(image_dir)
+        steps.append(
+            PipelineStep(
+                name="scan_images",
+                status="passed",
+                message=f"Found {len(image_files)} local images.",
+            )
+        )
+    except Exception as exc:
+        issues.append(_pipeline_issue("scan_images_failed", str(exc)))
+        steps.append(
+            PipelineStep(
+                name="scan_images",
+                status="failed",
+                message=str(exc),
+            )
+        )
+
+    try:
+        output_dir = create_output_dir(project_root)
+        steps.append(
+            PipelineStep(
+                name="create_output_dir",
+                status="passed",
+                message=f"Created output directory: {output_dir}",
+            )
+        )
+    except Exception as exc:
+        issues.append(_pipeline_issue("create_output_dir_failed", str(exc)))
+        steps.append(
+            PipelineStep(
+                name="create_output_dir",
+                status="failed",
+                message=str(exc),
+            )
+        )
+
+    can_write_storyboard = (
+        validation_passed
+        and image_dir is not None
+        and bool(image_files)
+        and not _has_failed_step(steps, {"load_project_json", "resolve_image_dir", "scan_images", "create_output_dir"})
+    )
+
+    if can_write_storyboard:
+        storyboard = build_mock_storyboard(project_config, image_files)
+        steps.append(
+            PipelineStep(
+                name="build_mock_storyboard",
+                status="passed",
+                message=f"Built mock storyboard with {len(storyboard.scenes)} scenes.",
+            )
+        )
+        try:
+            storyboard_file = write_storyboard(output_dir, storyboard)
+            storyboard_path = str(storyboard_file)
+            steps.append(
+                PipelineStep(
+                    name="write_storyboard",
+                    status="passed",
+                    message=f"Wrote storyboard: {storyboard_file}",
+                )
+            )
+        except Exception as exc:
+            issues.append(_pipeline_issue("write_storyboard_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="write_storyboard",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="build_mock_storyboard",
+                status="skipped",
+                message="Skipped because validation or image scanning did not pass.",
+            )
+        )
+        steps.append(
+            PipelineStep(
+                name="write_storyboard",
+                status="skipped",
+                message="Skipped because no storyboard was built.",
+            )
+        )
+
+    report = _build_report(
+        project_config=project_config,
+        project_file=project_file,
+        image_dir=image_dir,
+        output_dir=output_dir,
+        image_count=len(image_files),
+        storyboard_path=storyboard_path,
+        validation_passed=validation_passed,
+        steps=steps,
+        issues=issues,
+    )
+
+    report_path = output_dir / PIPELINE_REPORT_FILE_NAME
+    try:
+        steps.append(
+            PipelineStep(
+                name="write_pipeline_report",
+                status="passed",
+                message=f"Wrote pipeline report: {report_path}",
+            )
+        )
+        report = _build_report(
+            project_config=project_config,
+            project_file=project_file,
+            image_dir=image_dir,
+            output_dir=output_dir,
+            image_count=len(image_files),
+            storyboard_path=storyboard_path,
+            validation_passed=validation_passed,
+            steps=steps,
+            issues=issues,
+        )
+        write_pipeline_report(output_dir, report)
+    except Exception as exc:
+        issues.append(_pipeline_issue("write_pipeline_report_failed", str(exc)))
+        steps.append(
+            PipelineStep(
+                name="write_pipeline_report",
+                status="failed",
+                message=str(exc),
+            )
+        )
+        report = _build_report(
+            project_config=project_config,
+            project_file=project_file,
+            image_dir=image_dir,
+            output_dir=output_dir,
+            image_count=len(image_files),
+            storyboard_path=storyboard_path,
+            validation_passed=validation_passed,
+            steps=steps,
+            issues=issues,
+        )
+
+    return report
+
+
+def load_project_json(project_json_path: str | Path) -> dict[str, Any]:
+    project_file = Path(project_json_path).expanduser().resolve()
+    with project_file.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if not isinstance(data, dict):
+        raise ValueError("project.json must contain a JSON object.")
+
+    return data
+
+
+def resolve_project_root(project_json_path: str | Path) -> Path:
+    return Path(project_json_path).expanduser().resolve().parent
+
+
+def resolve_image_dir(project_config: dict[str, Any], project_json_path: str | Path) -> Path:
+    project_root = resolve_project_root(project_json_path)
+    raw_image_dir = str(project_config.get("image_dir") or "")
+    if not raw_image_dir:
+        return project_root
+
+    image_dir = Path(raw_image_dir).expanduser()
+    if image_dir.is_absolute():
+        return image_dir.resolve()
+    return (project_root / image_dir).resolve()
+
+
+def scan_image_files(image_dir: str | Path) -> list[ImageFile]:
+    image_dir_path = Path(image_dir).expanduser().resolve()
+    if not image_dir_path.exists():
+        raise FileNotFoundError(f"image_dir does not exist: {image_dir_path}")
+    if not image_dir_path.is_dir():
+        raise NotADirectoryError(f"image_dir is not a directory: {image_dir_path}")
+
+    images = [
+        ImageFile(name=path.name, path=path, suffix=path.suffix.lower())
+        for path in image_dir_path.iterdir()
+        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
+    ]
+    return sorted(images, key=lambda image: _natural_sort_key(image.name))
+
+
+def create_output_dir(project_root: str | Path) -> Path:
+    output_dir = Path(project_root).expanduser().resolve() / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def build_mock_storyboard(
+    project_config: dict[str, Any],
+    image_files: list[ImageFile],
+) -> Storyboard:
+    project_id = get_project_id(project_config)
+    scenes = [
+        StoryboardScene(
+            index=index,
+            role=identify_image_role(image.name),
+            image_name=image.name,
+            image_path=str(image.path),
+            mock_duration_seconds=MOCK_SCENE_DURATION_SECONDS,
+            mock_narration=(
+                f"Mock narration for {identify_image_role(image.name)} scene."
+            ),
+            notes="mock storyboard only; no AI generation in this phase",
+        )
+        for index, image in enumerate(image_files, start=1)
+    ]
+    return Storyboard(
+        project_id=project_id,
+        version="mock-v1",
+        scenes=scenes,
+        total_mock_duration_seconds=sum(
+            scene.mock_duration_seconds for scene in scenes
+        ),
+        notes=(
+            "Generated by restaurant_engine pipeline skeleton. No video, TTS, "
+            "DeepSeek, or image-to-video service was called."
+        ),
+    )
+
+
+def write_storyboard(output_dir: str | Path, storyboard: Storyboard) -> Path:
+    storyboard_path = Path(output_dir).expanduser().resolve() / STORYBOARD_FILE_NAME
+    _write_json(storyboard_path, asdict(storyboard))
+    return storyboard_path
+
+
+def write_pipeline_report(output_dir: str | Path, report: PipelineReport) -> Path:
+    report_path = Path(output_dir).expanduser().resolve() / PIPELINE_REPORT_FILE_NAME
+    _write_json(report_path, pipeline_report_to_dict(report))
+    return report_path
+
+
+def pipeline_report_to_dict(report: PipelineReport) -> dict[str, Any]:
+    return asdict(report)
+
+
+def get_project_id(project_config: dict[str, Any]) -> str:
+    for key in ("project_id", "project_name", "selected_title"):
+        value = str(project_config.get(key) or "").strip()
+        if value:
+            return value
+    return "restaurant_project"
+
+
+def identify_image_role(image_name: str) -> str:
+    name = image_name.lower()
+    if "intro" in name or "storefront" in name:
+        return "intro"
+    if "interior" in name:
+        return "interior"
+    if "dish_1" in name:
+        return "dish_1"
+    if "dish_2" in name:
+        return "dish_2"
+    if "dish_3" in name:
+        return "dish_3"
+    if "dining" in name or "gathering" in name:
+        return "dining"
+    if "detail" in name:
+        return "detail"
+    if "extra" in name:
+        return "extra"
+    return "unknown"
+
+
+def _build_report(
+    project_config: dict[str, Any],
+    project_file: Path,
+    image_dir: Path | None,
+    output_dir: Path,
+    image_count: int,
+    storyboard_path: str | None,
+    validation_passed: bool,
+    steps: list[PipelineStep],
+    issues: list[dict[str, Any]],
+) -> PipelineReport:
+    ok = (
+        validation_passed
+        and storyboard_path is not None
+        and not any(step.status == "failed" for step in steps)
+    )
+    return PipelineReport(
+        ok=ok,
+        project_id=get_project_id(project_config),
+        project_json_path=str(project_file),
+        image_dir=str(image_dir) if image_dir is not None else "",
+        output_dir=str(output_dir),
+        image_count=image_count,
+        storyboard_path=storyboard_path,
+        validation_passed=validation_passed,
+        steps=list(steps),
+        issues=list(issues),
+    )
+
+
+def _write_json(output_path: Path, data: dict[str, Any]) -> None:
+    output_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _pipeline_issue(code: str, message: str) -> dict[str, Any]:
+    return {
+        "code": code,
+        "message": message,
+        "severity": "error",
+        "field": None,
+        "file_name": None,
+    }
+
+
+def _has_failed_step(steps: list[PipelineStep], names: set[str]) -> bool:
+    return any(step.name in names and step.status == "failed" for step in steps)
+
+
+def _natural_sort_key(name: str) -> list[int | str]:
+    return [
+        int(part) if part.isdigit() else part.lower()
+        for part in re.split(r"(\d+)", name)
+    ]

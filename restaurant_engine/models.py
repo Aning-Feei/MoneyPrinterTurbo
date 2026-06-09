@@ -96,3 +96,44 @@ class PreflightReport:
     timing: TimingRecommendation
     render_params: RenderParameterRecommendation
     issues: list[ValidationIssue] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PipelineStep:
+    name: str
+    status: str
+    message: str
+
+
+@dataclass(frozen=True)
+class StoryboardScene:
+    index: int
+    role: str
+    image_name: str
+    image_path: str
+    mock_duration_seconds: int
+    mock_narration: str
+    notes: str
+
+
+@dataclass
+class Storyboard:
+    project_id: str
+    version: str
+    scenes: list[StoryboardScene] = field(default_factory=list)
+    total_mock_duration_seconds: int = 0
+    notes: str = ""
+
+
+@dataclass
+class PipelineReport:
+    ok: bool
+    project_id: str
+    project_json_path: str
+    image_dir: str
+    output_dir: str
+    image_count: int
+    storyboard_path: str | None
+    validation_passed: bool
+    steps: list[PipelineStep] = field(default_factory=list)
+    issues: list[dict[str, Any]] = field(default_factory=list)

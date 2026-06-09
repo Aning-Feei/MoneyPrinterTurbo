@@ -1827,3 +1827,32 @@
   - 文案字数校验。
   - `AI生成视频文案` 按钮。
   - 字幕生成、音频生成、视频生成核心。
+
+## 第 2 阶段 restaurant_engine Pipeline 骨架
+
+- 本次目标：
+  - 创建 `restaurant_engine` 最小 Pipeline 骨架。
+  - 从仓库外样本读取 `project.json`。
+  - 复用已有 validator。
+  - 扫描本地图片目录。
+  - 创建样本项目 `output/`。
+  - 输出 mock `storyboard.json` 和 `pipeline_report.json`。
+- 新增/调整内容：
+  - 新增 pipeline 数据结构。
+  - 新增 `restaurant_engine/pipeline.py`。
+  - 新增 `restaurant_engine/pipeline_project.py` CLI。
+  - 新增 `restaurant_docs/PIPELINE_SPEC.md`。
+- 当前明确不做：
+  - 不生成视频。
+  - 不调用 DeepSeek。
+  - 不调用 TTS。
+  - 不调用 AI 图生视频。
+  - 不调用外部 API。
+  - 不修改 WebUI。
+  - 不修改 MoneyPrinterTurbo 原有业务代码。
+  - 不修改视频生成核心。
+- 验证样本：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json`
+- 预期输出：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json`
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json`

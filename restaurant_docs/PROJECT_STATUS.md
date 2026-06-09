@@ -1340,3 +1340,26 @@ project.json
 - 本轮只调整页面布局。
 - 未修改本地上传、目标时长、字数校验或 AI 文案按钮逻辑。
 - 未修改视频生成核心。
+
+## 第 2 阶段：restaurant_engine Pipeline 骨架
+
+- 开始进入 `restaurant_engine` Pipeline 骨架阶段。
+- 当前 MoneyPrinterTurbo 仅作为第一阶段生成能力验证仓库。
+- 新增能力优先放在 `restaurant_engine/`，不继续扩展 MoneyPrinterTurbo WebUI 作为正式产品。
+- 本阶段已实现最小 pipeline 骨架：
+  - 读取仓库外 `project.json`。
+  - 调用已有 validator 校验输入。
+  - 扫描本地 `images` 目录。
+  - 创建样本项目 `output/` 目录。
+  - 输出 mock `storyboard.json`。
+  - 输出 `pipeline_report.json`。
+- 当前边界：
+  - 不生成视频。
+  - 不生成封面。
+  - 不调用 DeepSeek。
+  - 不调用 TTS。
+  - 不调用 AI 图生视频。
+  - 不调用外部 API。
+  - 不修改 WebUI。
+  - 不修改 MoneyPrinterTurbo 原有业务代码。
+  - 不修改视频生成核心。
