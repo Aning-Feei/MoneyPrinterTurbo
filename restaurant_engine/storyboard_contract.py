@@ -9,6 +9,7 @@ from .models import (
     Storyboard,
     StoryboardContractIssue,
     StoryboardContractReport,
+    StoryboardQualityReport,
 )
 
 
@@ -22,7 +23,20 @@ REQUIRED_SCENE_FIELDS = (
 MOCK_TEXT_MARKERS = (
     "Mock narration",
     "mock storyboard only",
+    "placeholder",
+    "TODO",
+    "待填写",
+    "占位",
+    "lorem",
+    "sample text",
 )
+QUALITY_TEXT_FIELDS = (
+    "visual_instruction",
+    "selling_point",
+    "transition_hint",
+)
+MIN_NARRATION_CJK_CHARS = 8
+MAX_NARRATION_CJK_CHARS = 80
 
 
 def validate_storyboard_contract(
@@ -135,6 +149,75 @@ def validate_storyboard_contract(
 
 def storyboard_contract_report_to_dict(
     report: StoryboardContractReport,
+) -> dict[str, Any]:
+    return asdict(report)
+
+
+def validate_storyboard_quality_contract(
+    storyboard: Storyboard | dict[str, Any],
+    planner: str = "mock",
+) -> StoryboardQualityReport:
+    storyboard_data = _to_dict(storyboard)
+    scenes = storyboard_data.get("scenes")
+    errors: list[StoryboardContractIssue] = []
+    warnings: list[StoryboardContractIssue] = []
+    narration_values: list[str] = []
+    cjk_counts: list[int] = []
+
+    if not isinstance(scenes, list):
+        return StoryboardQualityReport(
+            passed=False,
+            errors=[_error("missing_scenes", "storyboard.scenes must be a list.")],
+        )
+
+    for expected_index, scene in enumerate(scenes, start=1):
+        if not isinstance(scene, dict):
+            errors.append(
+                _error(
+                    "invalid_scene",
+                    f"scene {expected_index} must be a JSON object.",
+                )
+            )
+            continue
+
+        narration = str(scene.get("narration") or scene.get("mock_narration") or "")
+        normalized_narration = _normalize_text(narration)
+        narration_values.append(normalized_narration)
+        cjk_count = _count_cjk_chars(narration)
+        cjk_counts.append(cjk_count)
+
+        _validate_narration_quality(
+            narration=narration,
+            cjk_count=cjk_count,
+            scene_index=expected_index,
+            planner=planner,
+            errors=errors,
+            warnings=warnings,
+        )
+        _validate_quality_text_fields(scene, expected_index, planner, errors, warnings)
+
+    duplicate_count = _count_duplicate_nonempty_values(narration_values)
+    if duplicate_count > 0:
+        errors.append(
+            _error(
+                "duplicate_narration",
+                f"storyboard contains {duplicate_count} duplicate narration entries.",
+            )
+        )
+
+    return StoryboardQualityReport(
+        passed=not errors,
+        errors=errors,
+        warnings=warnings,
+        scene_count=len(scenes),
+        duplicate_narration_count=duplicate_count,
+        min_narration_cjk_chars=min(cjk_counts) if cjk_counts else 0,
+        max_narration_cjk_chars=max(cjk_counts) if cjk_counts else 0,
+    )
+
+
+def storyboard_quality_report_to_dict(
+    report: StoryboardQualityReport,
 ) -> dict[str, Any]:
     return asdict(report)
 
@@ -263,6 +346,141 @@ def _validate_scene_narration(
             warnings.append(issue)
         else:
             errors.append(issue)
+
+
+def _validate_narration_quality(
+    narration: str,
+    cjk_count: int,
+    scene_index: int,
+    planner: str,
+    errors: list[StoryboardContractIssue],
+    warnings: list[StoryboardContractIssue],
+) -> None:
+    if not narration.strip():
+        errors.append(
+            _error(
+                "empty_narration",
+                f"scene {scene_index} narration must not be empty.",
+            )
+        )
+        return
+
+    if cjk_count < MIN_NARRATION_CJK_CHARS:
+        errors.append(
+            _error(
+                "narration_too_short",
+                (
+                    f"scene {scene_index} narration has {cjk_count} CJK chars, "
+                    f"expected at least {MIN_NARRATION_CJK_CHARS}."
+                ),
+            )
+        )
+    if cjk_count > MAX_NARRATION_CJK_CHARS:
+        errors.append(
+            _error(
+                "narration_too_long",
+                (
+                    f"scene {scene_index} narration has {cjk_count} CJK chars, "
+                    f"expected at most {MAX_NARRATION_CJK_CHARS}."
+                ),
+            )
+        )
+    if cjk_count == 0:
+        errors.append(
+            _error(
+                "narration_not_chinese",
+                f"scene {scene_index} narration must contain Chinese promo copy.",
+            )
+        )
+
+    if _contains_placeholder_text(narration):
+        errors.append(
+            _error(
+                (
+                    "mock_text_in_deepseek_storyboard"
+                    if planner == "deepseek"
+                    else "placeholder_text_in_storyboard"
+                ),
+                f"scene {scene_index} narration contains placeholder text.",
+            )
+        )
+
+    if "餐厅" not in narration and "菜" not in narration and "味" not in narration:
+        warnings.append(
+            StoryboardContractIssue(
+                level="warning",
+                code="weak_restaurant_promo_signal",
+                message=(
+                    f"scene {scene_index} narration may be too generic for a "
+                    "restaurant promo."
+                ),
+            )
+        )
+
+
+def _validate_quality_text_fields(
+    scene: dict[str, Any],
+    scene_index: int,
+    planner: str,
+    errors: list[StoryboardContractIssue],
+    warnings: list[StoryboardContractIssue],
+) -> None:
+    for field in QUALITY_TEXT_FIELDS:
+        value = str(scene.get(field) or "")
+        if not value.strip():
+            errors.append(
+                _error(
+                    f"missing_{field}",
+                    f"scene {scene_index} {field} must not be empty.",
+                )
+            )
+            continue
+
+        if _contains_placeholder_text(value):
+            errors.append(
+                _error(
+                    (
+                        f"mock_text_in_deepseek_{field}"
+                        if planner == "deepseek"
+                        else f"placeholder_text_in_{field}"
+                    ),
+                    f"scene {scene_index} {field} contains placeholder text.",
+                )
+            )
+
+        if field == "visual_instruction" and _count_cjk_chars(value) < 6:
+            warnings.append(
+                StoryboardContractIssue(
+                    level="warning",
+                    code="visual_instruction_too_short",
+                    message=f"scene {scene_index} visual_instruction is terse.",
+                )
+            )
+
+
+def _contains_placeholder_text(text: str) -> bool:
+    text_lower = text.lower()
+    return any(marker.lower() in text_lower for marker in MOCK_TEXT_MARKERS)
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join(str(text or "").split()).strip()
+
+
+def _count_duplicate_nonempty_values(values: list[str]) -> int:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        if not value:
+            continue
+        if value in seen:
+            duplicates.add(value)
+        seen.add(value)
+    return len(duplicates)
+
+
+def _count_cjk_chars(text: str) -> int:
+    return sum(1 for char in str(text or "") if "\u4e00" <= char <= "\u9fff")
 
 
 def _to_dict(storyboard: Storyboard | dict[str, Any]) -> dict[str, Any]:

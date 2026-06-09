@@ -102,6 +102,36 @@ pipeline 在生成 storyboard 后、写入 `storyboard.json` 前执行 contract 
 - `pipeline_report.ok=false`。
 - pipeline 仍尽量写入 `pipeline_report.json`，方便定位问题。
 
+## Storyboard Quality Contract 校验
+
+结构 contract 通过后，pipeline 会继续执行 storyboard quality contract。该校验关注 storyboard 是否可用于餐厅宣传片后续链路，而不仅是 JSON 结构正确。
+
+质量校验内容：
+
+- narration 不能为空。
+- narration 必须包含中文宣传文案。
+- narration 中文字符数不能过短或过长。
+- scene narration 不能重复。
+- scene 必须包含非空：
+  - `visual_instruction`
+  - `selling_point`
+  - `transition_hint`
+- 不允许出现明显占位或 mock 文案，例如 `Mock narration`、`mock storyboard only`、`TODO`、`待填写`、`占位`。
+- DeepSeek planner 中出现 mock / placeholder 文案会作为 error。
+- mock planner 也必须输出结构完整、可读的中文占位 storyboard，而不是简单英文 mock 文案。
+
+`pipeline_report.json` 记录：
+
+- `storyboard_quality_passed`
+- `storyboard_quality_errors`
+- `storyboard_quality_warnings`
+
+如果 quality contract 失败：
+
+- `validate_storyboard_quality` step 标记为 failed。
+- `pipeline_report.ok=false`。
+- pipeline 仍尽量写入 `pipeline_report.json`，方便定位问题。
+
 ## Planner 模式
 
 当前 pipeline 支持两个 planner：

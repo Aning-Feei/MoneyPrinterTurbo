@@ -13,6 +13,7 @@ from .models import (
     Storyboard,
     StoryboardContractIssue,
     StoryboardContractReport,
+    StoryboardQualityReport,
     StoryboardScene,
     TimingRecommendation,
     ValidationIssue,
@@ -46,7 +47,9 @@ from .storyboard_planner import (
 )
 from .storyboard_contract import (
     storyboard_contract_report_to_dict,
+    storyboard_quality_report_to_dict,
     validate_storyboard_contract,
+    validate_storyboard_quality_contract,
 )
 from .validator import report_to_dict, validate_project, write_report
 
@@ -65,6 +68,7 @@ __all__ = [
     "Storyboard",
     "StoryboardContractIssue",
     "StoryboardContractReport",
+    "StoryboardQualityReport",
     "StoryboardScene",
     "TimingRecommendation",
     "ValidationIssue",
@@ -89,9 +93,11 @@ __all__ = [
     "validate_timing_coverage",
     "validate_project",
     "validate_storyboard_contract",
+    "validate_storyboard_quality_contract",
     "write_pipeline_report",
     "write_preflight_report",
     "write_report",
     "write_storyboard",
     "storyboard_contract_report_to_dict",
+    "storyboard_quality_report_to_dict",
 ]

@@ -69,6 +69,10 @@ def _print_summary(report, report_path: Path) -> None:
     print(f"duration_sum: {report.duration_sum}")
     print(f"contract errors count: {len(report.storyboard_contract_errors)}")
     print(f"contract warnings count: {len(report.storyboard_contract_warnings)}")
+    quality_status = "passed" if report.storyboard_quality_passed else "failed"
+    print(f"storyboard quality: {quality_status}")
+    print(f"quality errors count: {len(report.storyboard_quality_errors)}")
+    print(f"quality warnings count: {len(report.storyboard_quality_warnings)}")
     print(f"output_dir: {report.output_dir}")
     print(f"storyboard: {report.storyboard_path}")
     print(f"pipeline_report: {report_path}")

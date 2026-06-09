@@ -19,7 +19,10 @@ from .storyboard_planner import (
     get_project_id,
     get_target_duration_seconds,
 )
-from .storyboard_contract import validate_storyboard_contract
+from .storyboard_contract import (
+    validate_storyboard_contract,
+    validate_storyboard_quality_contract,
+)
 from .validator import IMAGE_SUFFIXES, report_to_dict, validate_project
 
 
@@ -45,6 +48,7 @@ def run_pipeline(
     validation_passed = False
     external_api_called = False
     storyboard_contract_report = None
+    storyboard_quality_report = None
     issues: list[dict[str, Any]] = []
     steps: list[PipelineStep] = []
 
@@ -305,6 +309,57 @@ def run_pipeline(
 
     if storyboard is not None:
         try:
+            storyboard_quality_report = validate_storyboard_quality_contract(
+                storyboard=storyboard,
+                planner=planner_name,
+            )
+            if storyboard_quality_report.passed:
+                steps.append(
+                    PipelineStep(
+                        name="validate_storyboard_quality",
+                        status="passed",
+                        message=(
+                            "Storyboard quality contract passed with "
+                            f"{len(storyboard_quality_report.warnings)} warnings."
+                        ),
+                    )
+                )
+            else:
+                issues.extend(
+                    _contract_issues_to_pipeline_issues(
+                        storyboard_quality_report.errors
+                    )
+                )
+                steps.append(
+                    PipelineStep(
+                        name="validate_storyboard_quality",
+                        status="failed",
+                        message=(
+                            "Storyboard quality contract failed with "
+                            f"{len(storyboard_quality_report.errors)} errors."
+                        ),
+                    )
+                )
+        except Exception as exc:
+            issues.append(_pipeline_issue("storyboard_quality_failed", str(exc)))
+            steps.append(
+                PipelineStep(
+                    name="validate_storyboard_quality",
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+    else:
+        steps.append(
+            PipelineStep(
+                name="validate_storyboard_quality",
+                status="skipped",
+                message="Skipped because no storyboard was built.",
+            )
+        )
+
+    if storyboard is not None:
+        try:
             storyboard_file = write_storyboard(output_dir, storyboard)
             storyboard_path = str(storyboard_file)
             steps.append(
@@ -345,6 +400,7 @@ def run_pipeline(
         external_api_called=external_api_called,
         storyboard=storyboard,
         storyboard_contract_report=storyboard_contract_report,
+        storyboard_quality_report=storyboard_quality_report,
         steps=steps,
         issues=issues,
     )
@@ -371,6 +427,7 @@ def run_pipeline(
             external_api_called=external_api_called,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
+            storyboard_quality_report=storyboard_quality_report,
             steps=steps,
             issues=issues,
         )
@@ -397,6 +454,7 @@ def run_pipeline(
             external_api_called=external_api_called,
             storyboard=storyboard,
             storyboard_contract_report=storyboard_contract_report,
+            storyboard_quality_report=storyboard_quality_report,
             steps=steps,
             issues=issues,
         )
@@ -485,6 +543,7 @@ def _build_report(
     external_api_called: bool,
     storyboard,
     storyboard_contract_report,
+    storyboard_quality_report,
     steps: list[PipelineStep],
     issues: list[dict[str, Any]],
 ) -> PipelineReport:
@@ -532,6 +591,21 @@ def _build_report(
             storyboard_contract_report.duration_sum
             if storyboard_contract_report is not None
             else 0
+        ),
+        storyboard_quality_passed=(
+            storyboard_quality_report.passed
+            if storyboard_quality_report is not None
+            else False
+        ),
+        storyboard_quality_errors=(
+            [asdict(issue) for issue in storyboard_quality_report.errors]
+            if storyboard_quality_report is not None
+            else []
+        ),
+        storyboard_quality_warnings=(
+            [asdict(issue) for issue in storyboard_quality_report.warnings]
+            if storyboard_quality_report is not None
+            else []
         ),
         planner=planner,
         external_api_allowed=external_api_allowed,

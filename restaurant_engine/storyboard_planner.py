@@ -22,6 +22,7 @@ def build_mock_storyboard(
     image_files: list[ImageFile],
 ) -> Storyboard:
     project_id = get_project_id(project_config)
+    restaurant_name = str(project_config.get("project_name") or project_id)
     target_duration_seconds = get_target_duration_seconds(project_config)
     durations = compute_scene_durations(target_duration_seconds, len(image_files))
     scenes = [
@@ -31,12 +32,21 @@ def build_mock_storyboard(
             image_name=image.name,
             image_path=str(image.path),
             mock_duration_seconds=duration,
-            mock_narration=(
-                f"Mock narration for {identify_image_role(image.name)} scene."
+            mock_narration=_build_mock_narration(
+                restaurant_name,
+                identify_image_role(image.name),
+                index,
             ),
-            notes="mock storyboard only; no AI generation in this phase",
+            notes="local planner draft; no AI generation in this phase",
             duration_seconds=duration,
-            narration=f"Mock narration for {identify_image_role(image.name)} scene.",
+            narration=_build_mock_narration(
+                restaurant_name,
+                identify_image_role(image.name),
+                index,
+            ),
+            visual_instruction=_build_visual_instruction(identify_image_role(image.name)),
+            selling_point=_build_selling_point(identify_image_role(image.name)),
+            transition_hint=_build_transition_hint(index, len(image_files)),
         )
         for index, (image, duration) in enumerate(zip(image_files, durations), start=1)
     ]
@@ -99,11 +109,15 @@ def build_deepseek_storyboard_messages(
         "The duration_seconds values must exactly match required_scene_durations_seconds "
         "in order, and total_duration_seconds must equal target_duration_seconds. "
         "Use concise narration suitable for Chinese restaurant promo videos. "
+        "Every scene must include non-empty visual_instruction, selling_point, "
+        "and transition_hint fields. "
         "Return this JSON object shape: "
         "{"
         '"project_id": string, "version": string, '
         '"scenes": [{"index": number, "role": string, "image_name": string, '
-        '"duration_seconds": number, "narration": string, "notes": string}], '
+        '"duration_seconds": number, "narration": string, '
+        '"visual_instruction": string, "selling_point": string, '
+        '"transition_hint": string, "notes": string}], '
         '"total_duration_seconds": number, "notes": string'
         "}. "
         f"Input: {json.dumps(payload, ensure_ascii=False)}"
@@ -163,6 +177,9 @@ def storyboard_from_deepseek_json(
                 ),
                 duration_seconds=duration,
                 narration=narration,
+                visual_instruction=str(scene_data.get("visual_instruction") or ""),
+                selling_point=str(scene_data.get("selling_point") or ""),
+                transition_hint=str(scene_data.get("transition_hint") or ""),
             )
         )
 
@@ -275,6 +292,59 @@ def identify_image_role(image_name: str) -> str:
     if "extra" in name:
         return "extra"
     return "unknown"
+
+
+def _build_mock_narration(restaurant_name: str, role: str, index: int) -> str:
+    templates = {
+        "intro": f"走进{restaurant_name}，热辣鲜香的川味体验马上开始。",
+        "interior": "舒适热闹的用餐环境，很适合朋友聚餐和家庭小聚。",
+        "dish_1": "招牌菜一上桌，麻辣香气扑面而来，越吃越过瘾。",
+        "dish_2": "经典口味搭配新鲜食材，每一口都能感受到地道风味。",
+        "dish_3": "鲜香麻辣层次丰富，是餐桌上不能错过的人气选择。",
+        "dining": "大家围坐一桌，边吃边聊，热闹氛围一下就拉满。",
+        "detail": "从锅底到蘸料都讲究细节，让整顿饭更有记忆点。",
+        "extra": "想吃一顿有温度的川味美食，这里会是不错的选择。",
+    }
+    return templates.get(
+        role,
+        f"{restaurant_name}第{index}个画面继续呈现餐厅亮点和美食氛围。",
+    )
+
+
+def _build_visual_instruction(role: str) -> str:
+    instructions = {
+        "intro": "展示门头或开场画面，镜头稳定推进，建立餐厅第一印象。",
+        "interior": "展示店内环境和灯光氛围，突出热闹舒适的用餐空间。",
+        "dish_1": "聚焦招牌菜近景，突出热气、色泽和食材质感。",
+        "dish_2": "展示菜品上桌瞬间，保留盘面细节和诱人色彩。",
+        "dish_3": "用中近景呈现菜品层次，突出麻辣鲜香的视觉感。",
+        "dining": "展示顾客围坐用餐的场景，突出聚餐氛围。",
+        "detail": "拍摄锅底、蘸料或服务细节，增强真实体验感。",
+        "extra": "展示补充亮点或收尾画面，形成完整宣传闭环。",
+    }
+    return instructions.get(role, "展示餐厅或菜品亮点，画面保持清晰稳定。")
+
+
+def _build_selling_point(role: str) -> str:
+    selling_points = {
+        "intro": "地道川味餐厅第一印象",
+        "interior": "适合聚餐的热闹环境",
+        "dish_1": "招牌菜麻辣鲜香",
+        "dish_2": "新鲜食材和经典口味",
+        "dish_3": "高人气菜品推荐",
+        "dining": "朋友聚餐氛围好",
+        "detail": "锅底蘸料和服务细节",
+        "extra": "收尾引导到店体验",
+    }
+    return selling_points.get(role, "餐厅亮点展示")
+
+
+def _build_transition_hint(index: int, total_count: int) -> str:
+    if index == 1:
+        return "从开场自然切入下一处餐厅亮点。"
+    if index == total_count:
+        return "收束到到店品尝的行动引导。"
+    return "顺接上一画面，保持美食节奏和用餐氛围。"
 
 
 def _coerce_positive_int(value: Any) -> int:

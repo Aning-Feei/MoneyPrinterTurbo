@@ -2013,3 +2013,43 @@
   - 未修改 `app/`。
   - 未修改 `config.toml`。
   - 未修改视频生成核心。
+
+## Storyboard quality contract 增强
+
+- 本次目标：
+  - 在结构 contract 之后增加内容质量门禁。
+  - 确保 storyboard 在进入 TTS、图生视频和视频合成前具备基本宣传片可用性。
+- 新增/调整内容：
+  - `StoryboardScene` 增加：
+    - `visual_instruction`
+    - `selling_point`
+    - `transition_hint`
+  - 新增 `StoryboardQualityReport`。
+  - 新增 `validate_storyboard_quality_contract(...)`。
+  - 新增 `storyboard_quality_report_to_dict(...)`。
+  - pipeline 新增 `validate_storyboard_quality` step。
+  - `PipelineReport` 增加：
+    - `storyboard_quality_passed`
+    - `storyboard_quality_errors`
+    - `storyboard_quality_warnings`
+  - CLI 摘要增加 storyboard quality 状态、quality errors count、quality warnings count。
+  - mock planner 改为输出中文餐厅宣传文案，不再输出简单英文 mock 文案。
+  - mock planner 输出完整质量字段。
+  - DeepSeek prompt 要求返回完整质量字段。
+  - DeepSeek 返回后保留质量字段。
+- quality contract 规则摘要：
+  - narration 非空。
+  - narration 包含中文。
+  - narration 中文字符数不应过短或过长。
+  - scene narration 不重复。
+  - `visual_instruction`、`selling_point`、`transition_hint` 非空。
+  - 不允许明显 mock / placeholder 文案。
+  - DeepSeek planner 不允许 mock / placeholder 文案。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。
+  - 未修改视频生成核心。

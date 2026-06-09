@@ -116,6 +116,9 @@ class StoryboardScene:
     notes: str
     duration_seconds: int = 0
     narration: str = ""
+    visual_instruction: str = ""
+    selling_point: str = ""
+    transition_hint: str = ""
 
 
 @dataclass
@@ -149,6 +152,17 @@ class StoryboardContractReport:
 
 
 @dataclass
+class StoryboardQualityReport:
+    passed: bool
+    errors: list[StoryboardContractIssue] = field(default_factory=list)
+    warnings: list[StoryboardContractIssue] = field(default_factory=list)
+    scene_count: int = 0
+    duplicate_narration_count: int = 0
+    min_narration_cjk_chars: int = 0
+    max_narration_cjk_chars: int = 0
+
+
+@dataclass
 class PipelineReport:
     ok: bool
     project_id: str
@@ -167,6 +181,9 @@ class PipelineReport:
     storyboard_contract_errors: list[dict[str, Any]] = field(default_factory=list)
     storyboard_contract_warnings: list[dict[str, Any]] = field(default_factory=list)
     duration_sum: int = 0
+    storyboard_quality_passed: bool = False
+    storyboard_quality_errors: list[dict[str, Any]] = field(default_factory=list)
+    storyboard_quality_warnings: list[dict[str, Any]] = field(default_factory=list)
     planner: str = "mock"
     external_api_allowed: bool = False
     external_api_called: bool = False

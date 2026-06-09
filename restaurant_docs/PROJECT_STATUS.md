@@ -1502,3 +1502,38 @@ project.json
   - 未修改 `app/`。
   - 未修改 `config.toml`。
   - 未修改 MoneyPrinterTurbo 视频生成核心。
+
+## 第 2 阶段补充：Storyboard Quality Contract 增强
+
+- 开始实现 storyboard quality contract。
+- 目标是在进入 TTS、图生视频和视频合成前，进一步约束 storyboard 内容质量。
+- 本轮增强内容：
+  - mock planner 不再输出简单英文 `Mock narration...`。
+  - mock planner 改为输出中文餐厅宣传片草稿文案。
+  - 每个 scene 增加：
+    - `visual_instruction`
+    - `selling_point`
+    - `transition_hint`
+  - DeepSeek prompt 要求返回上述质量字段。
+  - DeepSeek 返回后保留上述字段进入 storyboard。
+  - pipeline 新增 `validate_storyboard_quality` step。
+  - `pipeline_report.json` 新增：
+    - `storyboard_quality_passed`
+    - `storyboard_quality_errors`
+    - `storyboard_quality_warnings`
+- quality contract 校验内容：
+  - narration 不能为空。
+  - narration 必须包含中文宣传文案。
+  - narration 中文字符数不能过短或过长。
+  - scene narration 不能重复。
+  - `visual_instruction`、`selling_point`、`transition_hint` 必须存在且非空。
+  - 不允许明显 mock / placeholder 文案。
+  - DeepSeek planner 不允许 mock / placeholder 文案。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。
+  - 未修改 MoneyPrinterTurbo 视频生成核心。
