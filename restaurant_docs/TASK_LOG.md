@@ -1555,3 +1555,37 @@
   - 后续可优化 WebUI 后台启动保活。
   - 后续可测试 AI 文案按钮外部 API 稳定性。
   - 后续可整理演示样本包。
+
+## WebUI 后台启动脚本实现记录
+
+- 本次目标：
+  - 增加 TwinkleBite AI WebUI 后台启动、停止、状态检查脚本。
+  - 让用户在本机 macOS 上可后台启动 WebUI，关闭终端后尽量保持运行。
+  - 本次只做实现和静态检查，暂不自动启动或停止 WebUI。
+- 新增脚本：
+  - `scripts/twinkle_webui_start.sh`
+  - `scripts/twinkle_webui_stop.sh`
+  - `scripts/twinkle_webui_status.sh`
+- 运行文件：
+  - `.runtime/twinkle_webui.pid`
+  - `.runtime/twinkle_webui.log`
+  - `.runtime/` 已加入 `.gitignore`。
+- 使用方式：
+  - `scripts/twinkle_webui_start.sh`
+  - `scripts/twinkle_webui_status.sh`
+  - `scripts/twinkle_webui_stop.sh`
+- 行为说明：
+  - start 默认端口为 8501，端口已占用时拒绝启动，不强杀。
+  - stop 读取 PID 文件并使用普通 `kill` 温和停止，最多等待 5 秒，不默认 `kill -9`。
+  - status 输出 PID 文件状态、PID 是否运行、端口监听、WebUI URL 和最近 40 行日志。
+- 用户手动验证结果：
+  - start：成功。
+  - 关闭终端后：WebUI 仍保持运行。
+  - status：能看到 PID 正在运行、8501 正在监听。
+  - stop：成功。
+  - stop 后：PID file exists: no。
+  - stop 后：8501 无 listener。
+- 当前边界：
+  - 未修改业务代码。
+  - 未修改 WebUI 功能逻辑。
+  - 未修改视频生成核心。

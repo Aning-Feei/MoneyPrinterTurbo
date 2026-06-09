@@ -8,6 +8,8 @@
 
 ## 2. 启动 WebUI
 
+### 2.1 前台启动
+
 ```bash
 cd /Users/feei/AI/MoneyPrinterTurbo
 sh ./webui.sh
@@ -16,7 +18,22 @@ sh ./webui.sh
 - 默认地址：`http://127.0.0.1:8501`
 - 如果 WebUI 是前台运行，终端不要关闭。
 - 如果关闭终端，WebUI 可能停止。
-- 后续可单独优化后台保活启动方式。
+
+### 2.2 后台启动、状态和停止
+
+```bash
+cd /Users/feei/AI/MoneyPrinterTurbo
+scripts/twinkle_webui_start.sh
+scripts/twinkle_webui_status.sh
+scripts/twinkle_webui_stop.sh
+```
+
+- 后台启动会写入 `.runtime/twinkle_webui.pid`。
+- 日志写入 `.runtime/twinkle_webui.log`。
+- `.runtime/` 不进入 Git。
+- 如果端口 8501 已被前台 WebUI 占用，`twinkle_webui_start.sh` 会拒绝启动，不会强杀进程。
+- 如果用户正在前台运行 `sh ./webui.sh`，应先在那个终端按 `Ctrl+C` 停止，再使用后台脚本。
+- 用户已在本机 macOS 手动验证：start 成功，关闭终端后 WebUI 仍保持运行，status 可看到 PID 运行和 8501 监听，stop 成功，stop 后 PID 文件不存在且 8501 无 listener。
 
 ## 3. 基本测试流程
 

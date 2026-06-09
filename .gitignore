@@ -41,6 +41,7 @@ streamlit.log
 # Local runtime logs and generated prototype outputs
 webui.log
 webui.pid
+.runtime/
 *.log
 *.pid
 storage/
