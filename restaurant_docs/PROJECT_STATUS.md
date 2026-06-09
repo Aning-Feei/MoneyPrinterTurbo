@@ -1436,3 +1436,36 @@ project.json
 - 本轮不调用任何外部 API。
 - 本轮不生成视频。
 - 未修改 WebUI、`app/`、`config.toml` 或 MoneyPrinterTurbo 视频生成核心。
+
+## 第 2 阶段验证：DeepSeek planner 时长对齐真实测试
+
+- DeepSeek planner 时长对齐真实测试已通过。
+- 本次仅记录用户授权的真实 DeepSeek planner pipeline 测试结果，不再次调用外部 API。
+- DeepSeek planner 在真实 API 返回后，scene duration 已由本地逻辑强制归一化。
+- 关键结果：
+  - `pipeline_report.ok=true`
+  - `planner=deepseek`
+  - `external_api_allowed=true`
+  - `external_api_called=true`
+  - `target_duration_seconds=30`
+  - `scene_durations=[4, 4, 3, 4, 4, 3, 4, 4]`
+  - `storyboard total_duration_seconds=30`
+  - `duration_sum=30`
+  - `image_count=8`
+  - `scene_count=8`
+- scene 顺序与图片文件名排序完全一致。
+- storyboard 包含真实中文餐厅宣传文案摘要，例如“正宗川味太上头，麻辣鲜香，一吃就停不下来！”。
+- 未出现 mock 占位文案；兼容字段保留，但内容为真实文案。
+- 安全检查：
+  - 未发现 API Key 写入 `pipeline_report.json` 或 `storyboard.json`。
+  - 未发现 `sk-`、`api_key`、`Authorization`、`Bearer` 写入输出文件。
+  - 仓库内未误生成 `pipeline_report.json` 或 `storyboard.json`。
+- 当前边界：
+  - 未生成视频。
+  - 未修改代码。
+  - 未修改 WebUI。
+  - 未修改 `app/`。
+  - 未修改 `config.toml`。
+- 当前阻塞问题：无。
+- 当前非阻塞问题：
+  - 系统 `python3` 缺少项目依赖，本次实际使用项目 `.venv` Python 执行同等 pipeline 命令。

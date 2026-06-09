@@ -1936,3 +1936,42 @@
   - 未修改 `app/`。
   - 未修改 `config.toml`。
   - 未修改 MoneyPrinterTurbo 视频生成核心。
+
+## DeepSeek planner 时长对齐真实测试记录
+
+- 输入 `project.json`：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json`
+- 执行命令：
+  - `python3 -m restaurant_engine.pipeline_project --project /Users/feei/AI/restaurant-video-ai-samples/sichuan_001/project.json --planner deepseek --allow-external-api`
+- 执行环境说明：
+  - 系统 `python3` 缺少项目依赖。
+  - 本次实际使用项目 `.venv` Python 执行同等 pipeline 命令。
+- 输出文件：
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/storyboard.json`
+  - `/Users/feei/AI/restaurant-video-ai-samples/sichuan_001/output/pipeline_report.json`
+- 测试结果：
+  - `ok=true`
+  - `planner=deepseek`
+  - `external_api_allowed=true`
+  - `external_api_called=true`
+  - `target_duration_seconds=30`
+  - `scene_durations=[4, 4, 3, 4, 4, 3, 4, 4]`
+  - `storyboard total_duration_seconds=30`
+  - `duration_sum=30`
+  - `image_count=8`
+  - `scene_count=8`
+  - scene 顺序正确。
+  - storyboard 含真实中文餐厅宣传文案摘要，例如“正宗川味太上头，麻辣鲜香，一吃就停不下来！”。
+  - 未出现 mock 占位文案；兼容字段保留，但内容为真实文案。
+- 安全检查：
+  - 未发现 `sk-` / `api_key` / `Authorization` / `Bearer` 写入 report 或 storyboard。
+  - 仓库内未误生成 report/storyboard。
+  - 未生成视频。
+  - 未修改代码。
+- 阻塞问题：
+  - 无。
+- 非阻塞问题：
+  - 系统 `python3` 缺少项目依赖，本次实际使用项目 `.venv` Python 执行。
+- 结论：
+  - DeepSeek planner 真实调用 + 时长对齐已通过。
+  - 真实 DeepSeek 返回后，scene duration 已被本地强制归一化到 `target_duration_seconds=30`。

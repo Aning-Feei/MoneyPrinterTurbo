@@ -99,6 +99,18 @@ python3 -m restaurant_engine.pipeline_project \
 - scene 顺序与图片顺序一致。
 - 未发现 API Key、请求头或 token 写入 report/storyboard。
 
+DeepSeek planner 真实时长对齐测试也已通过：
+
+- DeepSeek 返回的 duration 不再作为最终时长来源。
+- 最终 scene duration 由本地 `compute_scene_durations(...)` 根据 `target_duration_seconds` 和 `image_count` 强制生成。
+- 当前验证样例：
+  - `target_duration_seconds=30`
+  - `image_count=8`
+  - `scene_durations=[4, 4, 3, 4, 4, 3, 4, 4]`
+  - `total_duration_seconds=30`
+- 真实 DeepSeek 返回后，storyboard 中的 scene duration 已按本地规则归一化。
+- 当前仍不生成视频、不调用 TTS、不调用图生视频。
+
 如果只传 `--planner deepseek` 但没有 `--allow-external-api`：
 
 - 不调用 DeepSeek。
@@ -190,3 +202,5 @@ CLI 输出：
 - 接入视频生成前保留 dry-run / mock 模式。
 - 继续增强 DeepSeek prompt 的文案节奏和结构约束。
 - 增加更严格的 storyboard schema 校验。
+- 增加 DeepSeek 输出质量评分。
+- 在 TTS / 视频链路接入前补充 contract 检查。
