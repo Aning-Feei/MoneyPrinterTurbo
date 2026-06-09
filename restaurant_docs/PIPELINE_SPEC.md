@@ -273,3 +273,31 @@ CLI 输出：
 - 增加更严格的 storyboard schema 校验。
 - 增加 DeepSeek 输出质量评分。
 - 在 TTS / 视频链路接入前补充 contract 检查。
+
+## Storyboard Quality Contract 阈值
+
+当前 quality contract 用于在进入 TTS、图生视频和视频合成前拦截不可用 storyboard 内容。
+
+硬性 error：
+
+- narration 为空。
+- narration 不包含中文字符，错误码为 `non_chinese_narration`。
+- narration 少于 4 个中文字符，错误码为 `narration_too_short_hard`。
+- narration 超过最大建议长度。
+- scene narration 重复。
+- `visual_instruction`、`selling_point`、`transition_hint` 缺失或为空。
+- DeepSeek planner 返回 mock、placeholder、TODO、待填写等占位内容。
+
+warning：
+
+- narration 有 4 到 7 个中文字符时，记录 `narration_too_short` warning。
+- 该区间的短促中文宣传句可以通过 quality contract，例如“正宗川味，太上头！”。
+- `visual_instruction` 过短或餐厅宣传信号偏弱时记录 warning。
+
+DeepSeek planner prompt 约束：
+
+- narration 应为自然中文短句，优先不少于 8 个中文字符。
+- 不返回过短片段。
+- 不返回 mock、placeholder、TODO、待填写或 Markdown。
+- scene 数量和图片顺序必须保持输入顺序。
+- duration 由本地 `compute_scene_durations` 归一化，DeepSeek 返回值不作为最终时长来源。

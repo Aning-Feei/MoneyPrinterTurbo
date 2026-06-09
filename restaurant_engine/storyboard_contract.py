@@ -36,6 +36,7 @@ QUALITY_TEXT_FIELDS = (
     "transition_hint",
 )
 MIN_NARRATION_CJK_CHARS = 8
+HARD_MIN_NARRATION_CJK_CHARS = 4
 MAX_NARRATION_CJK_CHARS = 80
 
 
@@ -156,7 +157,10 @@ def storyboard_contract_report_to_dict(
 def validate_storyboard_quality_contract(
     storyboard: Storyboard | dict[str, Any],
     planner: str = "mock",
+    target_duration_seconds: int | None = None,
 ) -> StoryboardQualityReport:
+    del target_duration_seconds
+
     storyboard_data = _to_dict(storyboard)
     scenes = storyboard_data.get("scenes")
     errors: list[StoryboardContractIssue] = []
@@ -365,13 +369,31 @@ def _validate_narration_quality(
         )
         return
 
-    if cjk_count < MIN_NARRATION_CJK_CHARS:
+    if cjk_count == 0:
         errors.append(
             _error(
-                "narration_too_short",
+                "non_chinese_narration",
+                f"scene {scene_index} narration must contain Chinese promo copy.",
+            )
+        )
+    elif cjk_count < HARD_MIN_NARRATION_CJK_CHARS:
+        errors.append(
+            _error(
+                "narration_too_short_hard",
                 (
                     f"scene {scene_index} narration has {cjk_count} CJK chars, "
-                    f"expected at least {MIN_NARRATION_CJK_CHARS}."
+                    f"expected at least {HARD_MIN_NARRATION_CJK_CHARS}."
+                ),
+            )
+        )
+    elif cjk_count < MIN_NARRATION_CJK_CHARS:
+        warnings.append(
+            StoryboardContractIssue(
+                level="warning",
+                code="narration_too_short",
+                message=(
+                    f"scene {scene_index} narration has {cjk_count} CJK chars, "
+                    f"prefer at least {MIN_NARRATION_CJK_CHARS} for smoother TTS."
                 ),
             )
         )
@@ -385,14 +407,6 @@ def _validate_narration_quality(
                 ),
             )
         )
-    if cjk_count == 0:
-        errors.append(
-            _error(
-                "narration_not_chinese",
-                f"scene {scene_index} narration must contain Chinese promo copy.",
-            )
-        )
-
     if _contains_placeholder_text(narration):
         errors.append(
             _error(

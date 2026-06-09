@@ -1537,3 +1537,26 @@ project.json
   - 未修改 `app/`。
   - 未修改 `config.toml`。
   - 未修改 MoneyPrinterTurbo 视频生成核心。
+
+## 第 2 阶段修正：Storyboard Quality Contract 阈值调整
+
+- 真实 DeepSeek planner quality contract 测试发现：
+  - scene 1 返回文案“正宗川味，太上头！”。
+  - 该文案中文字符数为 7。
+  - 原 quality contract 将少于 8 个中文字符直接判为 `narration_too_short` error，导致整体 quality 失败。
+- 本轮修正：
+  - 空 narration 仍为 error。
+  - 非中文 narration 仍为 error，错误码为 `non_chinese_narration`。
+  - 少于 4 个中文字符的极短 narration 仍为 hard error，错误码为 `narration_too_short_hard`。
+  - 4 到 7 个中文字符的中文短句降级为 warning，错误码为 `narration_too_short`。
+  - `正宗川味，太上头！` 这类短促但可用于餐厅宣传片的中文文案可以通过 quality contract。
+  - DeepSeek prompt 补充要求：每个 scene narration 应为自然中文短句，优先不少于 8 个中文字符，避免过短片段、mock、placeholder、TODO、待填写或 Markdown。
+- 保留的硬性门禁：
+  - 缺少 `narration`、`visual_instruction`、`selling_point`、`transition_hint` 仍为 error。
+  - duplicate narration 仍为 error。
+  - DeepSeek planner 中 mock / placeholder 文案仍为 error。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI、`app/` 或 `config.toml`。

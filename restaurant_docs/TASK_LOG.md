@@ -2053,3 +2053,29 @@
   - 未修改 `app/`。
   - 未修改 `config.toml`。
   - 未修改视频生成核心。
+
+## Storyboard quality contract 阈值修正
+
+- 背景：
+  - 真实 DeepSeek planner quality contract 测试中，scene 1 返回“正宗川味，太上头！”。
+  - 该文案是可用于餐厅宣传片的中文短句，但中文字符数为 7。
+  - 原规则把少于 8 个中文字符的 narration 直接判为 `narration_too_short` error，导致 quality contract 失败。
+- 本轮修正：
+  - 空 narration 仍为 error。
+  - 非中文 narration 仍为 error，错误码为 `non_chinese_narration`。
+  - 少于 4 个中文字符的极短 narration 仍为 hard error，错误码为 `narration_too_short_hard`。
+  - 4 到 7 个中文字符的 narration 降级为 warning，错误码仍为 `narration_too_short`。
+  - DeepSeek prompt 增强：要求自然中文短句，优先不少于 8 个中文字符，不返回过短片段、mock、placeholder、TODO、待填写或 Markdown。
+- 保留规则：
+  - 缺少 `visual_instruction`、`selling_point`、`transition_hint` 仍为 error。
+  - duplicate narration 仍为 error。
+  - DeepSeek planner 中 mock / placeholder 文案仍为 error。
+- 本轮验证目标：
+  - 默认 mock pipeline 仍通过 structure contract 和 quality contract。
+  - 本地 fake DeepSeek storyboard 中“正宗川味，太上头！”应通过 quality contract。
+  - DeepSeek 未授权调用仍应被阻止，且不调用外部 API。
+- 当前边界：
+  - 本轮不调用 DeepSeek。
+  - 本轮不调用任何外部 API。
+  - 本轮不生成视频。
+  - 未修改 WebUI、`app/`、`config.toml` 或视频生成核心。
