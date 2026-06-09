@@ -19,7 +19,7 @@
     "Use Custom System Prompt": "使用自定义系统提示词",
     "Use Custom System Prompt Help": "启用后会覆盖默认脚本生成规则，适合熟悉 Prompt 的高级用户。",
     "Custom System Prompt": "自定义系统提示词",
-    "Generate Video Script and Keywords": "AI生成视频文案",
+    "Generate Video Script and Keywords": "生成视频标题/视频文案",
     "Auto Detect": "自动检测",
     "Video Script": "视频文案",
     "Generate Video Keywords": "点击使用AI根据**文案**生成【视频关键词】",

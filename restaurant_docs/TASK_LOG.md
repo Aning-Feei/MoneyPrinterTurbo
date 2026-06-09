@@ -2534,3 +2534,167 @@
 - 不生成音频。
 - 不生成视频。
 - 不修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
+
+## 第 4 阶段：WebUI 临时封面验证入口
+
+任务目标：
+- 在 MoneyPrinterTurbo 现有 Streamlit WebUI 中新增餐饮封面生成临时验证入口。
+- 让用户可以输入 `theme_text`、生成 3 个标题候选、选择标题、上传图片、选择封面图片并生成本地封面图。
+- 该入口只用于第 4 阶段本地验证，不是最终正式 Web 产品。
+
+本轮实现：
+- WebUI 新增折叠入口：`餐饮封面生成验证（Prototype）`。
+- WebUI 直接调用 `restaurant_engine.cover_planner.build_title_candidates` 生成标题候选。
+- 标题候选固定为：
+  - `title_1`
+  - `title_2`
+  - `title_3`
+- 标题来源固定为 `local_static`。
+- WebUI 支持上传 `jpg` / `jpeg` / `png` / `webp` 图片。
+- 上传图片保存到仓库外临时目录：
+  - `/private/tmp/mpt-restaurant-webui/`
+- WebUI 支持：
+  - 用户选择标题。
+  - 用户选择上传图片中的 1 张。
+  - 用户选择自动封面图。
+- 生成封面时调用：
+  - `run_pipeline(..., planner="mock", image_understanding_provider="mock", allow_external_api=False)`
+- WebUI 展示：
+  - `cover_image.png`
+  - `selected_title`
+  - `cover_copy.title`
+  - `cover_render_report.title_text`
+  - `cover_render_status`
+  - `selected_assets.primary_image_id`
+  - `cover_render_output_width`
+  - `cover_render_output_height`
+  - `external_api_called`
+  - warning code 摘要
+
+restaurant_engine 最小兼容：
+- `validator.IMAGE_SUFFIXES` 增加 `.webp`。
+- 新增 `pipeline_mode=cover_prototype` 判断。
+- 该模式只放宽视频主流程所需的图片数量和类别校验，便于封面验证上传 1 张图片时运行。
+- 默认视频 pipeline 行为不变。
+
+新增文档：
+- `restaurant_docs/WEBUI_COVER_PROTOTYPE_SPEC.md`
+
+安全边界：
+- 不进入第 5 阶段。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不调用 LLM。
+- 不读取 API Key。
+- 不调用视觉模型。
+- 不使用 AI 图片生成。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+- 本轮暂不 commit，等待浏览器确认和提交前复核。
+
+## 第 4 阶段：WebUI 生成视频标题/视频文案一体化调整
+
+任务目标：
+- 将 WebUI 临时封面验证入口中的标题候选生成与视频文案生成合并。
+- 用户输入视频主题后，只点击一次 `生成视频标题/视频文案`。
+- 系统同时生成 3 个视频标题候选和视频文案。
+- 用户选择标题后，该标题继续作为封面主标题。
+
+本轮调整：
+- 将 prototype 输入字段用户可见标签改为 `视频主题`，内部仍使用 `theme_text`。
+- 将原 `生成标题候选` 动作合并为 `生成视频标题/视频文案`。
+- 点击按钮后：
+  - 调用 `restaurant_engine.cover_planner.build_title_candidates` 生成 `title_1` / `title_2` / `title_3`。
+  - 调用 `restaurant_engine.storyboard_planner.build_mock_storyboard` 生成本地 mock 视频文案。
+  - 将标题候选展示在按钮下方。
+  - 将视频文案展示在标题候选下方。
+- 生成封面图时仍优先传入 `selected_cover_title_id`。
+- `cover_copy.title` 和 `cover_render_report.title_text` 继续由用户选择标题驱动。
+
+安全边界：
+- 不进入第 5 阶段。
+- 不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不调用 LLM。
+- 不使用 AI 图片生成。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+- 本轮暂不 commit。
+
+## 第 4 阶段：文案设置中生成视频标题/视频文案一体化修正
+
+任务目标：
+- 按产品反馈修正文案设置区的主流程。
+- 不再让用户进入独立标题生成入口。
+- 直接复用现有左侧 `文案设置` 区域中的 AI 文案按钮。
+
+本轮调整：
+- 将 `Generate Video Script and Keywords` 的中文显示改为 `生成视频标题/视频文案`。
+- 在原按钮点击流程中新增本地标题候选生成：
+  - 调用 `restaurant_engine.cover_planner.build_title_candidates`。
+  - 写入 `restaurant_cover_title_candidates`。
+  - 默认写入 `restaurant_cover_selected_title_id=title_1`。
+- 保留原视频文案生成和关键词生成逻辑。
+- 在该按钮下方显示 3 个标题候选。
+- 用户可通过 `视频标题候选` radio 切换标题。
+- 封面生成验证区改为复用文案设置中的主题和选中标题。
+- 封面生成验证区不再显示独立主题输入，也不再显示独立 `生成视频标题/视频文案` 按钮。
+- 未主动选择标题时仍默认 `title_1`。
+- 未上传图片时点击生成封面仍显示受控提示，不调用 pipeline。
+
+验证关注点：
+- `selected_cover_title_id` 继续传入封面生成。
+- `cover_plan.selected_title.title_id` 应等于用户选择。
+- `cover_copy.title` 应等于用户选择标题文本。
+- `cover_render_report.title_text` 应等于用户选择标题文本。
+- `cover_image.png` 使用用户选择标题和用户上传图片。
+
+安全边界：
+- 本轮不调用 DeepSeek。
+- 不调用任何外部 API。
+- 不调用 LLM 或 AI 图片生成。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 不修改 `app/`、`config.toml`、`storage/`、`resource/`。
+- 本轮暂不 commit。
+
+## 第 4 阶段：本地标题候选质量修正
+
+任务目标：
+- 修正 WebUI 本地标题候选太平、像模板占位的问题。
+- 保持本地 deterministic，不接 DeepSeek、不接 LLM、不调用外部 API。
+
+本轮调整：
+- 修改 `restaurant_engine.cover_planner.build_title_candidates` 的本地模板策略。
+- 默认 fallback 标题从偏说明型改为更适合封面的短句：
+  - `这一口真的有记忆点`
+  - `今天这顿吃得很满足`
+  - `这家小店有点想再来`
+- 针对常见主题做本地规则分流：
+  - 火锅 / 四川火锅 / 川菜 / 麻辣
+  - 烤鱼 / 小龙虾
+  - 咖啡 / 甜品 / 下午茶
+  - 烧烤 / 烤肉
+  - 其他常见餐饮品类
+- 标题候选仍固定 3 个：
+  - `title_1`
+  - `title_2`
+  - `title_3`
+- `source` 仍为 `local_static`。
+- 不再使用 `值得一试`、`聚餐首选`、`发现这家` 作为主要标题后缀模板。
+- WebUI 已复用同一个 `restaurant_engine.cover_planner.build_title_candidates` helper，因此按钮下方候选标题会同步使用新逻辑。
+
+安全边界：
+- 未调用 DeepSeek。
+- 未调用 LLM。
+- 未调用任何外部 API。
+- 未调用 AI 图片生成。
+- 未调用 TTS。
+- 未生成音频或视频。
+- 未修改 `config.toml`、`storage/`、`resource/`。
+- 本轮暂不 commit。

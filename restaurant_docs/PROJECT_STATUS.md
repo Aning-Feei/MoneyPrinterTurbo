@@ -1902,3 +1902,122 @@ project.json
   - 不生成音频或视频。
   - 不修改 WebUI、`app/`、`config.toml`、`storage/` 或 `resource/`。
   - 本轮暂不 commit，等待后续提交前复核。
+
+## 第 4 阶段：WebUI 临时封面验证入口
+
+- 在 MoneyPrinterTurbo Streamlit WebUI 中新增餐饮封面生成临时验证入口。
+- 该入口只用于第 4 阶段本地验证，不是最终正式 Web 产品，也不是后续 `restaurant-video-ai` 项目。
+- WebUI 支持：
+  - 输入 `theme_text`。
+  - 本地生成 3 个标题候选。
+  - 用户选择 `selected_cover_title_id`。
+  - 上传 1 张或多张餐厅图片。
+  - 用户选择封面图片或选择自动。
+  - 调用 `restaurant_engine` 本地 pipeline 生成封面。
+  - 预览 `cover_image.png`。
+  - 展示 cover plan / render / pipeline 摘要。
+- 当前复用：
+  - `restaurant_engine.cover_planner.build_title_candidates`
+  - `restaurant_engine.pipeline.run_pipeline`
+  - `cover_plan.json`
+  - `cover_render_report.json`
+  - `cover_image.png`
+  - `pipeline_report.json`
+- 新增临时 project 模式：
+  - `pipeline_mode=cover_prototype`
+  - 仅用于 WebUI 封面验证。
+  - 允许封面验证在上传 1 张图片时运行。
+  - 不改变默认视频主流程的图片数量和类别门禁。
+- 上传图片和输出产物写入仓库外：
+  - `/private/tmp/mpt-restaurant-webui/`
+- 当前边界：
+  - 不进入第 5 阶段。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 LLM。
+  - 不读取 API Key。
+  - 不调用视觉模型。
+  - 不使用 AI 图片生成。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+  - 本轮暂不 commit，等待浏览器确认和提交前复核。
+
+## 第 4 阶段：WebUI 标题/文案一体化调整
+
+- 调整 WebUI 临时封面验证入口的交互。
+- 主按钮改为：
+  - `生成视频标题/视频文案`
+- 用户输入视频主题后，点击该按钮会同时生成：
+  - 3 个视频标题候选
+  - 本地 mock 视频文案
+- 标题候选显示在按钮下方，并供用户选择。
+- 视频文案显示在标题候选区域下方。
+- 独立 `生成标题候选` 主流程动作已合并，不再要求用户单独点击。
+- 视频文案当前复用 `restaurant_engine.storyboard_planner.build_mock_storyboard` 的本地 mock 能力。
+- 封面生成仍使用：
+  - `selected_cover_title_id`
+  - `cover_plan.json`
+  - `cover_render_report.json`
+  - `cover_image.png`
+  - `local_pillow`
+- 当前边界：
+  - 不进入第 5 阶段。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 LLM。
+  - 不使用 AI 图片生成。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 不修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
+  - 本轮暂不 commit。
+
+## 第 4 阶段：文案设置中的标题/文案一体化修正
+
+- 根据最新产品反馈，标题候选生成不应作为独立入口或独立页面出现。
+- 当前已将一体化动作并入现有 WebUI 左侧 `文案设置` 区域。
+- 原文案设置按钮显示调整为：
+  - `生成视频标题/视频文案`
+- 用户在 `视频主题` 输入主题后，点击该按钮会：
+  - 继续执行原有视频文案生成逻辑。
+  - 本地生成 3 个封面标题候选。
+  - 默认选择 `title_1`。
+  - 将标题候选显示在按钮下方，供用户切换。
+- 封面生成验证区不再提供独立主题输入或独立标题/文案生成按钮。
+- 封面生成继续读取：
+  - `restaurant_cover_selected_title_id`
+  - 用户上传图片
+  - 本地 `restaurant_engine` cover pipeline
+- 当前仍是本地 prototype：
+  - 不进入第 5 阶段。
+  - 不调用 DeepSeek。
+  - 不调用任何外部 API。
+  - 不调用 AI 图片生成。
+  - 不调用 TTS。
+  - 不生成音频或视频。
+  - 不修改 `config.toml`、`storage/` 或 `resource/`。
+  - 本轮暂不 commit，等待浏览器确认和提交前复核。
+
+## 第 4 阶段：本地标题候选质量修正
+
+- 针对 WebUI 封面标题候选质量偏弱的问题，优化本地 `local_static` 标题模板。
+- 原弱模板问题：
+  - `四川火锅值得一试`
+  - `四川火锅聚餐首选`
+  - `发现这家四川火锅`
+- 新策略：
+  - 不再使用简单 `主题 + 后缀` 拼接。
+  - 按本地规则识别火锅、川菜、烤鱼、小龙虾、咖啡甜品、烧烤等常见餐饮场景。
+  - 固定输出 3 个不同角度标题：
+    - 味道钩子
+    - 场景钩子
+    - 氛围/发现感钩子
+  - 标题保持短句，更适合作为短视频封面主标题。
+- 标题生成仍为 deterministic 本地逻辑：
+  - `source=local_static`
+  - 不调用 DeepSeek。
+  - 不调用 LLM。
+  - 不调用任何外部 API。
+  - 不使用 AI 图片生成。
+- WebUI 继续复用 `restaurant_engine.cover_planner.build_title_candidates`，pipeline 和 WebUI 标题候选保持一致。
+- 当前仍不进入第 5 阶段，不生成音频或视频，本轮暂不 commit。

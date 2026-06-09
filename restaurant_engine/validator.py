@@ -28,7 +28,7 @@ DEFAULT_TARGET_DURATION_SECONDS = 30
 MIN_RESTAURANT_IMAGES = 6
 MIN_CLIP_DURATION_SECONDS = 3
 MAX_CLIP_DURATION_SECONDS = 6
-IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 FORBIDDEN_NAME_HINTS = [
     "qrcode",
     "qr",
@@ -65,15 +65,18 @@ def validate_project(project_path: str | Path) -> ValidationReport:
     image_dir_path = (project_root / config.image_dir).resolve() if config.image_dir else project_root
     image_files = _scan_images(image_dir_path, issues)
     category_checks = _check_categories(image_files)
-    _validate_image_count(image_files, issues)
+    cover_prototype_mode = is_cover_prototype_project(data)
+    if not cover_prototype_mode:
+        _validate_image_count(image_files, issues)
     image_count_range = get_image_count_range_for_duration(config.target_duration_seconds)
-    _validate_image_count_for_target_duration(
-        image_files=image_files,
-        target_duration_seconds=config.target_duration_seconds,
-        image_count_range=image_count_range,
-        issues=issues,
-    )
-    _validate_categories(category_checks, issues)
+    if not cover_prototype_mode:
+        _validate_image_count_for_target_duration(
+            image_files=image_files,
+            target_duration_seconds=config.target_duration_seconds,
+            image_count_range=image_count_range,
+            issues=issues,
+        )
+        _validate_categories(category_checks, issues)
     _validate_forbidden_name_hints(image_files, issues)
 
     report = ValidationReport(
@@ -201,6 +204,10 @@ def get_image_count_range_for_duration(target_duration_seconds: int) -> dict[str
         ),
         "max": math.floor(target_duration_seconds / MIN_CLIP_DURATION_SECONDS),
     }
+
+
+def is_cover_prototype_project(data: dict[str, Any]) -> bool:
+    return str(data.get("pipeline_mode") or "").strip() == "cover_prototype"
 
 
 def _build_config(

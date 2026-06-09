@@ -1,8 +1,12 @@
 import os
+import json
 import math
 import re
 import sys
+import tempfile
 import webbrowser
+from dataclasses import asdict
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import requests
@@ -28,6 +32,10 @@ from app.models.schema import (
 from app.services import llm, voice
 from app.services import task as tm
 from app.utils import utils
+from restaurant_engine.cover_planner import build_title_candidates
+from restaurant_engine.models import ImageFile
+from restaurant_engine.pipeline import run_pipeline
+from restaurant_engine.storyboard_planner import build_mock_storyboard
 
 st.set_page_config(
     page_title="TwinkleBite AI",
@@ -393,6 +401,11 @@ def tr(key):
 
 RESTAURANT_TARGET_DURATIONS = [30, 40, 50, 60]
 RESTAURANT_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+RESTAURANT_COVER_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+RESTAURANT_COVER_PROTOTYPE_ROOT = os.path.join(
+    "/private/tmp" if os.path.isdir("/private/tmp") else tempfile.gettempdir(),
+    "mpt-restaurant-webui",
+)
 RESTAURANT_SCRIPT_EXTENSION_SENTENCES = [
     "这里适合朋友小聚，也适合下班后放松用餐。",
     "热气腾腾的锅底配上新鲜食材，让整顿饭更有氛围。",
@@ -403,6 +416,332 @@ RESTAURANT_SCRIPT_EXTENSION_SENTENCES = [
     "每一口都更有烟火气。",
     "值得一试。",
 ]
+
+
+def get_cover_prototype_session_id() -> str:
+    if "restaurant_cover_prototype_session_id" not in st.session_state:
+        st.session_state["restaurant_cover_prototype_session_id"] = str(uuid4())
+    return st.session_state["restaurant_cover_prototype_session_id"]
+
+
+def safe_cover_upload_name(index: int, original_name: str) -> str:
+    base_name = os.path.basename(original_name or f"image_{index}")
+    name_root, ext = os.path.splitext(base_name)
+    ext = ext.lower()
+    safe_root = re.sub(r"[^0-9A-Za-z._\-\u4e00-\u9fff]+", "_", name_root).strip("._")
+    if not safe_root:
+        safe_root = f"image_{index}"
+    if ext not in RESTAURANT_COVER_IMAGE_SUFFIXES:
+        ext = ".jpg"
+    return f"{index:03d}_{safe_root[:40]}{ext}"
+
+
+def cover_title_candidates_to_dicts(theme_text: str) -> list[dict]:
+    return [asdict(candidate) for candidate in build_title_candidates(theme_text)]
+
+
+def generate_cover_title_candidates_for_subject(
+    theme_text: str, reset_selection: bool = True
+) -> list[dict]:
+    candidates = cover_title_candidates_to_dicts(theme_text)
+    st.session_state["restaurant_cover_title_candidates"] = candidates
+    candidate_ids = [candidate["title_id"] for candidate in candidates]
+    current_selected = st.session_state.get("restaurant_cover_selected_title_id")
+    if reset_selection or current_selected not in candidate_ids:
+        st.session_state["restaurant_cover_selected_title_id"] = (
+            candidate_ids[0] if candidate_ids else ""
+        )
+    return candidates
+
+
+def build_cover_prototype_video_script(theme_text: str, candidates: list[dict]) -> str:
+    script_seed_title = selected_cover_title_text(candidates, "title_1")
+    project_config = {
+        "project_id": "webui_cover_prototype_script",
+        "project_name": script_seed_title or "餐饮宣传",
+        "user_request": theme_text or "餐饮宣传视频文案",
+        "selected_title": script_seed_title or "餐饮宣传",
+        "target_duration_seconds": 30,
+    }
+    mock_images = [
+        ImageFile(
+            name="01_intro.jpg",
+            path=Path(RESTAURANT_COVER_PROTOTYPE_ROOT) / "mock" / "01_intro.jpg",
+            suffix=".jpg",
+        ),
+        ImageFile(
+            name="02_dish_1.jpg",
+            path=Path(RESTAURANT_COVER_PROTOTYPE_ROOT) / "mock" / "02_dish_1.jpg",
+            suffix=".jpg",
+        ),
+        ImageFile(
+            name="03_dining.jpg",
+            path=Path(RESTAURANT_COVER_PROTOTYPE_ROOT) / "mock" / "03_dining.jpg",
+            suffix=".jpg",
+        ),
+    ]
+    storyboard = build_mock_storyboard(project_config, mock_images)
+    lines = [
+        str(scene.narration or scene.mock_narration or "").strip()
+        for scene in storyboard.scenes
+        if str(scene.narration or scene.mock_narration or "").strip()
+    ]
+    return "\n".join(lines)
+
+
+def selected_cover_title_text(candidates: list[dict], selected_title_id: str) -> str:
+    for candidate in candidates:
+        if candidate.get("title_id") == selected_title_id:
+            return str(candidate.get("text") or "")
+    return str(candidates[0].get("text") or "") if candidates else ""
+
+
+def render_cover_title_candidates_selector() -> str:
+    candidates = st.session_state.get("restaurant_cover_title_candidates", [])
+    if not candidates:
+        return ""
+
+    title_ids = [candidate["title_id"] for candidate in candidates]
+    current_selected = st.session_state.get("restaurant_cover_selected_title_id")
+    selected_index = title_ids.index(current_selected) if current_selected in title_ids else 0
+    selected_title_id = st.radio(
+        "视频标题候选",
+        options=title_ids,
+        index=selected_index,
+        format_func=lambda title_id: next(
+            (
+                f"{candidate['title_id']}：{candidate['text']}"
+                for candidate in candidates
+                if candidate["title_id"] == title_id
+            ),
+            title_id,
+        ),
+        key="restaurant_cover_selected_title_id",
+    )
+    st.caption("默认选择 title_1，可切换为更适合封面的标题。")
+    st.write(f"当前选中标题：{selected_cover_title_text(candidates, selected_title_id)}")
+    return selected_title_id
+
+
+def create_cover_prototype_run_dir() -> str:
+    session_id = get_cover_prototype_session_id()
+    run_dir = os.path.join(RESTAURANT_COVER_PROTOTYPE_ROOT, session_id, str(uuid4()))
+    os.makedirs(os.path.join(run_dir, "images"), exist_ok=True)
+    return run_dir
+
+
+def save_cover_prototype_uploads(uploaded_image_files, images_dir: str) -> list[dict]:
+    saved_images = []
+    for index, uploaded_file in enumerate(uploaded_image_files or [], start=1):
+        file_name = safe_cover_upload_name(index, getattr(uploaded_file, "name", ""))
+        target_path = os.path.join(images_dir, file_name)
+        with open(target_path, "wb") as file:
+            file.write(uploaded_file.getbuffer())
+        saved_images.append(
+            {
+                "index": index,
+                "image_id": f"image_{index:03d}",
+                "file_name": file_name,
+                "path": target_path,
+                "display_name": os.path.basename(getattr(uploaded_file, "name", file_name)),
+            }
+        )
+    return saved_images
+
+
+def write_cover_prototype_project(
+    run_dir: str,
+    theme_text: str,
+    selected_title_id: str,
+    selected_title_text: str,
+    selected_image_id: str | None,
+) -> str:
+    project = {
+        "project_id": "webui_cover_prototype",
+        "pipeline_mode": "cover_prototype",
+        "project_name": "餐饮封面验证",
+        "user_request": theme_text or "餐饮封面验证",
+        "selected_title": selected_title_text or "餐饮封面验证",
+        "theme_text": theme_text,
+        "selected_cover_title_id": selected_title_id or "title_1",
+        "aspect_ratio": "9:16",
+        "voice_type": "none",
+        "voice_enabled": False,
+        "subtitle_enabled": False,
+        "bgm_type": "none",
+        "video_style": "cover_prototype",
+        "image_dir": "images",
+        "target_duration_seconds": 30,
+    }
+    if selected_image_id:
+        project["selected_cover_image_id"] = selected_image_id
+
+    project_path = os.path.join(run_dir, "project.json")
+    with open(project_path, "w", encoding="utf-8") as file:
+        json.dump(project, file, ensure_ascii=False, indent=2)
+        file.write("\n")
+    return project_path
+
+
+def read_json_file(path: str | None) -> dict:
+    if not path or not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def display_safe_path(path: str | None) -> str:
+    if not path:
+        return ""
+    basename = os.path.basename(path)
+    parent = os.path.basename(os.path.dirname(path))
+    if parent:
+        return os.path.join(parent, basename)
+    return basename
+
+
+def render_restaurant_cover_prototype(theme_text: str):
+    st.divider()
+    st.write("封面生成验证（Prototype）")
+    st.caption(
+        "使用上方生成并选中的视频标题生成封面图。当前仅用于本地验证，不是最终正式产品。"
+    )
+
+    candidates = st.session_state.get("restaurant_cover_title_candidates", [])
+    if candidates:
+        selected_title_id = st.session_state.get(
+            "restaurant_cover_selected_title_id", candidates[0]["title_id"]
+        )
+        st.caption(
+            f"当前封面标题：{selected_cover_title_text(candidates, selected_title_id)}"
+        )
+    else:
+        st.info(
+            "尚未生成视频标题/视频文案。生成封面时会默认生成候选并选择 title_1，请人工确认。"
+        )
+
+    uploaded_image_files = st.file_uploader(
+        "上传餐厅图片",
+        type=["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG", "WEBP"],
+        accept_multiple_files=True,
+        key="restaurant_cover_uploaded_images",
+    )
+
+    image_choice_options = ["auto"]
+    image_choice_labels = {"auto": "自动选择"}
+    for index, uploaded_file in enumerate(uploaded_image_files or [], start=1):
+        option = f"image_{index:03d}"
+        image_choice_options.append(option)
+        image_choice_labels[option] = f"上传图片 {index}：{uploaded_file.name}"
+
+    selected_image_option = st.selectbox(
+        "选择封面图片",
+        options=image_choice_options,
+        index=0,
+        format_func=lambda option: image_choice_labels.get(option, option),
+        key="restaurant_cover_selected_image_id",
+    )
+
+    if uploaded_image_files:
+        preview_cols = st.columns(min(4, len(uploaded_image_files)))
+        for index, uploaded_file in enumerate(uploaded_image_files[:4], start=1):
+            with preview_cols[(index - 1) % len(preview_cols)]:
+                st.image(uploaded_file, caption=f"上传图片 {index}", use_container_width=True)
+
+    if st.button("生成封面图", key="restaurant_cover_render_button"):
+        if not uploaded_image_files:
+            st.warning("请先上传至少 1 张餐厅图片。")
+            return
+
+        active_candidates = st.session_state.get("restaurant_cover_title_candidates")
+        if not active_candidates:
+            active_candidates = generate_cover_title_candidates_for_subject(
+                theme_text, reset_selection=True
+            )
+            video_script = build_cover_prototype_video_script(theme_text, active_candidates)
+            st.session_state["restaurant_cover_video_script"] = video_script
+            st.info("未手动选择标题，已默认选择第一个标题，请人工确认。")
+
+        selected_title_id = st.session_state.get(
+            "restaurant_cover_selected_title_id",
+            active_candidates[0]["title_id"],
+        )
+        selected_title_text = selected_cover_title_text(active_candidates, selected_title_id)
+        selected_image_id = None if selected_image_option == "auto" else selected_image_option
+
+        try:
+            run_dir = create_cover_prototype_run_dir()
+            images_dir = os.path.join(run_dir, "images")
+            save_cover_prototype_uploads(uploaded_image_files, images_dir)
+            project_path = write_cover_prototype_project(
+                run_dir=run_dir,
+                theme_text=theme_text,
+                selected_title_id=selected_title_id,
+                selected_title_text=selected_title_text,
+                selected_image_id=selected_image_id,
+            )
+            report = run_pipeline(
+                project_path,
+                planner="mock",
+                image_understanding_provider="mock",
+                allow_external_api=False,
+            )
+            cover_plan = read_json_file(report.cover_plan_path)
+            cover_render_report = read_json_file(report.cover_render_report_path)
+            pipeline_report = read_json_file(
+                os.path.join(report.output_dir, "pipeline_report.json")
+            )
+            st.session_state["restaurant_cover_last_result"] = {
+                "cover_plan": cover_plan,
+                "cover_render_report": cover_render_report,
+                "pipeline_report": pipeline_report,
+                "cover_image_path": report.cover_rendered_image_path,
+            }
+        except Exception as exc:
+            st.error(f"封面生成失败：{str(exc)[:240]}")
+
+    result = st.session_state.get("restaurant_cover_last_result")
+    if result:
+        cover_plan = result.get("cover_plan") or {}
+        cover_render_report = result.get("cover_render_report") or {}
+        pipeline_report = result.get("pipeline_report") or {}
+        cover_image_path = result.get("cover_image_path")
+        if cover_image_path and os.path.exists(cover_image_path):
+            st.image(cover_image_path, caption="cover_image.png", use_container_width=True)
+
+        selected_title = cover_plan.get("selected_title") or {}
+        selected_assets = cover_plan.get("selected_assets") or {}
+        st.write("封面结果摘要")
+        st.json(
+            {
+                "selected_title": selected_title.get("text"),
+                "cover_copy_title": (cover_plan.get("cover_copy") or {}).get("title"),
+                "cover_render_title_text": cover_render_report.get("title_text"),
+                "cover_render_status": cover_render_report.get("render_status"),
+                "cover_selected_image_id": selected_assets.get("primary_image_id"),
+                "cover_selected_image_path": display_safe_path(
+                    selected_assets.get("primary_image_path")
+                ),
+                "cover_rendered_image_path": display_safe_path(cover_image_path),
+                "cover_render_output_width": cover_render_report.get("output_width"),
+                "cover_render_output_height": cover_render_report.get("output_height"),
+                "external_api_called": pipeline_report.get("external_api_called"),
+                "cover_external_api_called": pipeline_report.get(
+                    "cover_external_api_called"
+                ),
+                "cover_render_external_api_called": pipeline_report.get(
+                    "cover_render_external_api_called"
+                ),
+                "warnings": [
+                    warning.get("code")
+                    for warning in (cover_plan.get("warnings") or [])
+                ]
+                + [
+                    warning.get("code")
+                    for warning in (cover_render_report.get("warnings") or [])
+                ],
+            }
+        )
 
 
 def set_params_runtime_field(params: VideoParams, field_name: str, value):
@@ -1520,6 +1859,7 @@ if not config.app.get("hide_config", False):
             save_keys_to_config("pixabay_api_keys", pixabay_api_key)
 
 llm_provider = config.app.get("llm_provider", "").lower()
+
 panel = st.columns([1, 1])
 left_panel = panel[0]
 middle_panel = panel[1]
@@ -1564,6 +1904,13 @@ with left_panel:
             tr("Generate Video Script and Keywords"), key="auto_generate_script"
         ):
             with st.spinner(tr("Generating Video Script and Keywords")):
+                cover_title_candidates = generate_cover_title_candidates_for_subject(
+                    params.video_subject, reset_selection=True
+                )
+                cover_video_script = build_cover_prototype_video_script(
+                    params.video_subject, cover_title_candidates
+                )
+                st.session_state["restaurant_cover_video_script"] = cover_video_script
                 script_prompt = params.video_script_prompt
                 if getattr(params, "restaurant_mode", False):
                     script_prompt = build_restaurant_script_prompt(params)
@@ -1602,6 +1949,7 @@ with left_panel:
                             st.error("AI 文案仍未完全落入推荐范围，请手动微调后再生成。")
                     st.session_state["video_script"] = script
                     st.session_state["video_script_input"] = script
+                    st.session_state["restaurant_cover_video_script"] = script
                     terms = llm.generate_terms(params.video_subject, script)
                     if "Error: " in terms:
                         st.warning("视频文案已生成，但关键词生成失败；将使用本地默认关键词继续。")
@@ -1611,7 +1959,8 @@ with left_panel:
                             )
                     else:
                         st.session_state["video_terms"] = ", ".join(terms)
-                    st.success("AI 文案已生成，并已按目标时长校准。")
+                    st.success("视频标题和 AI 文案已生成，并已按目标时长校准。")
+        render_cover_title_candidates_selector()
         if getattr(params, "restaurant_mode", False):
             if st.session_state.get("video_script_input", "") != st.session_state.get(
                 "video_script", ""
@@ -1682,6 +2031,8 @@ with left_panel:
             params.video_terms = st.text_area(
                 tr("Video Keywords"), value=st.session_state["video_terms"]
             )
+        if getattr(params, "restaurant_mode", False):
+            render_restaurant_cover_prototype(params.video_subject)
 
 with middle_panel:
     with st.container(border=True):

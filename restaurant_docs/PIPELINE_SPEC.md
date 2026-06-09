@@ -669,3 +669,70 @@ TTS contract 当前规则：
   - audio duration 校准
   - per-scene audio 输出 contract
   - 图生视频适配层设计
+
+## WebUI Cover Prototype 临时验证入口
+
+第 4 阶段新增 MoneyPrinterTurbo WebUI 临时验证入口，用于本地验证封面生成闭环。
+
+该入口不是正式 Web 产品，也不是第 9 阶段正式 WebUI。
+
+当前 WebUI 入口执行路径：
+
+1. 用户输入视频主题，内部写入 `theme_text`。
+2. 用户点击 `生成视频标题/视频文案`。
+3. WebUI 调用 `restaurant_engine.cover_planner.build_title_candidates` 本地生成 3 个标题候选。
+4. WebUI 调用 `restaurant_engine.storyboard_planner.build_mock_storyboard` 本地生成 mock 视频文案。
+5. 标题候选显示在按钮下方，用户选择 `selected_cover_title_id`。
+6. 视频文案显示在标题候选下方。
+7. 用户上传 1 张或多张图片。
+8. 用户选择 `selected_cover_image_id` 或选择自动。
+9. WebUI 在仓库外临时目录生成 `project.json`。
+10. WebUI 调用 `restaurant_engine.pipeline.run_pipeline`。
+11. pipeline 输出 `cover_plan.json`、`cover_render_report.json`、`cover_image.png` 和 `pipeline_report.json`。
+
+WebUI 固定使用：
+
+```text
+planner=mock
+image_understanding_provider=mock
+allow_external_api=false
+```
+
+临时 project 使用：
+
+```text
+pipeline_mode=cover_prototype
+```
+
+该模式只用于 WebUI 封面验证入口，允许封面验证在上传 1 张图片时运行。默认视频主流程的图片数量、类别、storyboard、narration 等 contract 不因此改变。
+
+最新 WebUI 交互修正：
+
+- 标题候选生成已合并进现有左侧 `文案设置` 区域。
+- `文案设置` 中主按钮显示为 `生成视频标题/视频文案`。
+- 点击后本地生成 3 个标题候选，并继续执行原视频文案生成逻辑。
+- 标题候选显示在该按钮下方，默认选择 `title_1`。
+- 封面验证区不再提供独立主题输入或独立标题/文案生成按钮，只复用文案设置中的 `video_subject` 和 `selected_cover_title_id`。
+
+本地标题候选质量修正：
+
+- `title_provider` 仍为 `local_static`。
+- 标题候选仍固定输出 3 个。
+- 第 4 阶段已避免 `值得一试`、`聚餐首选`、`发现这家` 等弱模板后缀。
+- 当前本地规则按餐饮品类和场景生成更适合短视频封面的标题。
+- 该逻辑仍不调用 DeepSeek、LLM、视觉模型或任何外部 API。
+
+当前入口不做：
+
+- 不调用 DeepSeek。
+- 不调用外部 API。
+- 不调用 LLM。
+- 不读取 API Key。
+- 不调用视觉模型。
+- 不使用 AI 图片生成。
+- 不调用 TTS。
+- 不生成音频。
+- 不生成视频。
+- 不写入 `storage/`。
+- 不写入 `resource/`。
+- 不把上传图片或 output 产物写入仓库源码目录。

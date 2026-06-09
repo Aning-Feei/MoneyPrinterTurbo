@@ -26,9 +26,9 @@ COVER_PLANNER_NAME = "local_static"
 COVER_RENDER_STATUS = "not_rendered"
 TITLE_PROVIDER = "local_static"
 DEFAULT_TITLES = (
-    "餐厅宣传视频",
-    "精选美食与空间展示",
-    "发现这家宝藏餐厅",
+    "这一口真的有记忆点",
+    "今天这顿吃得很满足",
+    "这家小店有点想再来",
 )
 
 
@@ -100,21 +100,9 @@ def get_theme_text(project: dict[str, Any]) -> str:
 
 def build_title_candidates(theme_text: str) -> list[TitleCandidate]:
     if not theme_text:
-        return [
-            TitleCandidate(
-                title_id=f"title_{index}",
-                text=text,
-                source=TITLE_PROVIDER,
-            )
-            for index, text in enumerate(DEFAULT_TITLES, start=1)
-        ]
-
-    focus = extract_title_focus(theme_text)
-    title_texts = (
-        limit_title(f"{focus}值得一试"),
-        limit_title(f"{focus}聚餐首选"),
-        limit_title(f"发现这家{focus}"),
-    )
+        title_texts = DEFAULT_TITLES
+    else:
+        title_texts = build_short_video_cover_titles(theme_text)
     return [
         TitleCandidate(
             title_id=f"title_{index}",
@@ -123,6 +111,69 @@ def build_title_candidates(theme_text: str) -> list[TitleCandidate]:
         )
         for index, text in enumerate(title_texts, start=1)
     ]
+
+
+def build_short_video_cover_titles(theme_text: str) -> tuple[str, str, str]:
+    normalized = normalize_theme_text(theme_text)
+
+    if contains_any(normalized, ("火锅",)):
+        if contains_any(normalized, ("四川", "川味", "川菜", "麻辣", "热辣")):
+            return (
+                "这锅川味越吃越上头",
+                "朋友聚餐就该吃这锅",
+                "藏不住的热辣火锅局",
+            )
+        return (
+            "热气一上桌就有氛围",
+            "朋友聚餐就该吃这锅",
+            "这一锅越吃越有味",
+        )
+
+    if contains_any(normalized, ("烤鱼", "小龙虾")):
+        return (
+            "招牌味一上桌就香",
+            "这顿聚餐热闹得刚好",
+            "越吃越有味的这一桌",
+        )
+
+    if contains_any(normalized, ("川菜", "四川", "川味", "麻辣", "热辣")):
+        return (
+            "这口川味越吃越上头",
+            "朋友聚餐就爱这一桌",
+            "藏不住的热辣川味",
+        )
+
+    if contains_any(normalized, ("咖啡", "甜品", "下午茶", "蛋糕", "烘焙")):
+        return (
+            "下午茶就该这样放松",
+            "甜品咖啡拍照刚刚好",
+            "这一口甜得很有氛围",
+        )
+
+    if contains_any(normalized, ("烧烤", "烤肉", "串串")):
+        return (
+            "烟火气一上来就饿了",
+            "朋友聚餐就爱这一口",
+            "越烤越香的热闹局",
+        )
+
+    if contains_any(normalized, ("海鲜", "粤菜", "茶餐厅", "面馆", "日料", "韩餐", "西餐")):
+        focus = extract_title_focus(theme_text)
+        return (
+            limit_title(f"{focus}这一口很有记忆点"),
+            "这顿饭吃得刚刚好",
+            "藏在日常里的好味道",
+        )
+
+    return DEFAULT_TITLES
+
+
+def normalize_theme_text(theme_text: str) -> str:
+    return re.sub(r"\s+", "", str(theme_text or ""))
+
+
+def contains_any(text: str, markers: tuple[str, ...]) -> bool:
+    return any(marker in text for marker in markers)
 
 
 def extract_title_focus(theme_text: str) -> str:
@@ -136,7 +187,7 @@ def extract_title_focus(theme_text: str) -> str:
 
 
 def limit_title(title: str) -> str:
-    return str(title or "").strip()[:18] or "餐厅宣传视频"
+    return str(title or "").strip()[:16] or DEFAULT_TITLES[0]
 
 
 def select_title(
