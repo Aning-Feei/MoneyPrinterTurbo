@@ -240,6 +240,34 @@ RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY
 
 报告不得写入 API Key、Authorization header、Bearer token 或敏感签名 URL。
 
+## 真实 outputs 解析兼容
+
+真实 RunningHub status / outputs 响应可能与 fake client 不一致，provider 必须按类型安全方式解析：
+
+- status 响应允许 `data` 为字符串，例如 `SUCCESS`。
+- outputs 响应允许：
+  - `data: [{"fileUrl": "..."}]`
+  - `outputs: ["..."]`
+  - `outputs: [{"url": "..."}]`
+  - `outputs: {"images": ["..."]}`
+  - nested `data` / `result` / `outputs` / `output` / `files` / `images`
+- 输出字段应兼容：
+  - `url`
+  - `fileUrl` / `file_url`
+  - `imageUrl` / `image_url`
+  - `downloadUrl` / `download_url`
+  - `fileId` / `file_id`
+  - `id`
+  - `filename` / `fileName`
+  - `path`
+  - `name`
+
+要求：
+- 不对非 dict 直接调用 `.get()`。
+- 未知输出结构只记录受控 warning，不暴露 traceback。
+- report 中只记录脱敏 URL，不写入敏感 query。
+- 已提交 task 的 outputs 查询不得被当作新任务提交。
+
 ## 当前边界
 
 - RunningHub 是本阶段唯一允许的外部封面生成 provider。

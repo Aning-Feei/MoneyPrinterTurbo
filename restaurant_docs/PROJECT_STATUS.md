@@ -2131,3 +2131,16 @@ project.json
   - variant 级 `title_quality_passed`、`title_quality_warnings`、`cover_prompt`、`prompt_source`、`aspect_ratio`。
 - WebUI 仍不展示标题候选列表或标题选择 UI，只展示封面编号、预览、选中状态、比例、渲染状态和 warning。
 - 本轮不执行真实 RunningHub smoke，不调用 DeepSeek、LLM、TTS，不生成音频或视频。
+
+## 第 4 阶段：RunningHub 真实输出解析修复
+
+- 真实 RunningHub smoke 已提交 3 个 task，task 创建成功，失败点定位到 status / outputs parser。
+- 根因：真实 status 响应中 `data` 可能是字符串 `SUCCESS`，旧 parser 对非 dict 调用 `.get()`。
+- 已修复 `restaurant_engine/runninghub_cover.py`：
+  - status / task id 解析改为类型安全。
+  - outputs 解析兼容 string / dict / list / nested dict。
+  - 支持 `fileUrl`、`imageUrl`、`downloadUrl`、`url`、`fileId`、`path`、`name` 等输出字段。
+  - report 只记录脱敏 URL，实际下载使用原始 URL。
+- 新增 RunningHub parser 单元测试，覆盖真实响应结构和 string output fallback。
+- 本轮只查询已有 task，不新增 RunningHub task，不调用 DeepSeek / LLM / TTS，不生成音频或视频。
+- 未修改 `app/`、`config.toml`、`storage/`、`resource/`。

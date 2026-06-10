@@ -2875,3 +2875,34 @@ restaurant_engine 最小兼容：
 - 未生成音频或视频。
 - 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
 - 本轮暂不 commit，等待浏览器确认和提交前复核。
+
+## 第 4 阶段：RunningHub 真实输出解析修复
+
+任务背景：
+- RunningHub 真实 smoke 已提交 3 个封面 task：
+  - `2064568458020081665`
+  - `2064568466555494401`
+  - `2064568474776334338`
+- 首次 smoke 的 3 个 task 已成功创建，但 provider 在状态/输出解析阶段失败。
+- 失败摘要：真实 status 响应中的 `data` 是字符串 `SUCCESS`，旧 parser 对其调用 `.get()`，触发 `'str' object has no attribute 'get'`。
+
+本轮调整：
+- 修复 `restaurant_engine/runninghub_cover.py` 的 RunningHub status / outputs 解析。
+- 增加类型安全的 `safe_get`、task id/status 提取、outputs normalize、output refs 提取。
+- 兼容：
+  - `data: "SUCCESS"`
+  - `data: [{"fileUrl": "..."}]`
+  - `outputs: ["..."]`
+  - `outputs: [{"url": "..."}]`
+  - `outputs: {"images": ["..."]}`
+  - nested `data/result/outputs/output/files/images`
+- 实际下载使用原始 URL，report 只记录脱敏后的 URL，不写入敏感 query。
+- 新增 parser 单元测试覆盖 string / dict / list / nested output 结构。
+
+安全边界：
+- 本轮使用已有 task id 查询 RunningHub status / outputs，不新增 task。
+- 不输出 API Key。
+- 不输出敏感 signed URL。
+- 不调用 DeepSeek、LLM、TTS、音频或视频生成。
+- 不修改 `app/`、`config.toml`、`storage/`、`resource/`。
+- 本轮暂不 commit。

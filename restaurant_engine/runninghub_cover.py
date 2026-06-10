@@ -175,13 +175,7 @@ class RunningHubCoverClient:
         )
         data = self._json_response(response, "submit task")
         return {
-            "task_id": (
-                data.get("taskId")
-                or data.get("task_id")
-                or data.get("id")
-                or (data.get("data") or {}).get("taskId")
-                or (data.get("data") or {}).get("task_id")
-            ),
+            "task_id": extract_task_id(data),
             "raw": data,
         }
 
@@ -197,18 +191,14 @@ class RunningHubCoverClient:
             )
             payload = self._json_response(response, "poll task")
             last_payload = payload
-            status = str(
-                payload.get("status")
-                or payload.get("taskStatus")
-                or (payload.get("data") or {}).get("status")
-                or ""
-            ).lower()
+            status = extract_task_status(payload)
             if status in {"success", "succeeded", "completed", "finish", "finished"}:
                 output = self.get_task_output(task_id)
                 return {
                     "status": "succeeded",
                     "remote_result_ref": output.get("remote_result_ref"),
                     "remote_result_url": output.get("remote_result_url"),
+                    "remote_result_download_url": output.get("remote_result_download_url"),
                     "raw": {"status": payload, "output": output.get("raw")},
                 }
             if status in {"failed", "error", "canceled", "cancelled"}:
@@ -224,15 +214,20 @@ class RunningHubCoverClient:
             timeout=30,
         )
         payload = self._json_response(response, "fetch task output")
+        output_refs = extract_output_refs(payload)
         result_url = extract_result_url(payload)
+        result_ref = output_refs[0] if output_refs else task_id
         return {
-            "remote_result_ref": safe_remote_ref(result_url or task_id),
+            "remote_result_ref": safe_remote_ref(result_url or result_ref or task_id),
             "remote_result_url": safe_remote_url(result_url),
+            "remote_result_download_url": result_url,
             "raw": payload,
         }
 
     def download_result_image(self, remote_result: dict[str, Any], output_path: str | Path):
-        result_url = remote_result.get("remote_result_url")
+        result_url = remote_result.get("remote_result_download_url") or remote_result.get(
+            "remote_result_url"
+        )
         if not result_url:
             raise RunningHubCoverError("RunningHub task did not return a downloadable image URL.")
         response = requests.get(result_url, timeout=60)
@@ -374,23 +369,75 @@ def build_cover_prompt(title_text: str, aspect_ratio: str, theme_text: str = "")
     )
 
 
+def safe_get(value: Any, key: str, default=None):
+    if isinstance(value, dict):
+        return value.get(key, default)
+    return default
+
+
+def extract_task_id(payload: Any) -> str:
+    candidates = [
+        safe_get(payload, "taskId"),
+        safe_get(payload, "task_id"),
+        safe_get(payload, "id"),
+    ]
+    data = safe_get(payload, "data")
+    candidates.extend(
+        [
+            safe_get(data, "taskId"),
+            safe_get(data, "task_id"),
+            safe_get(data, "id"),
+        ]
+    )
+    if isinstance(data, str):
+        candidates.append(data)
+    for candidate in candidates:
+        text = str(candidate or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def extract_task_status(payload: Any) -> str:
+    candidates = [
+        safe_get(payload, "status"),
+        safe_get(payload, "taskStatus"),
+        safe_get(payload, "state"),
+    ]
+    data = safe_get(payload, "data")
+    candidates.extend(
+        [
+            safe_get(data, "status"),
+            safe_get(data, "taskStatus"),
+            safe_get(data, "state"),
+        ]
+    )
+    if isinstance(data, str):
+        candidates.append(data)
+    for candidate in candidates:
+        text = str(candidate or "").strip().lower()
+        if text:
+            return text
+    return ""
+
+
 def extract_upload_ref(payload: dict[str, Any]) -> str:
     candidates: list[Any] = [
-        payload.get("fileName"),
-        payload.get("file_name"),
-        payload.get("file"),
-        payload.get("url"),
-        payload.get("id"),
+        safe_get(payload, "fileName"),
+        safe_get(payload, "file_name"),
+        safe_get(payload, "file"),
+        safe_get(payload, "url"),
+        safe_get(payload, "id"),
     ]
-    data = payload.get("data")
+    data = safe_get(payload, "data")
     if isinstance(data, dict):
         candidates.extend(
             [
-                data.get("fileName"),
-                data.get("file_name"),
-                data.get("file"),
-                data.get("url"),
-                data.get("id"),
+                safe_get(data, "fileName"),
+                safe_get(data, "file_name"),
+                safe_get(data, "file"),
+                safe_get(data, "url"),
+                safe_get(data, "id"),
             ]
         )
     elif isinstance(data, str):
@@ -402,35 +449,68 @@ def extract_upload_ref(payload: dict[str, Any]) -> str:
     return ""
 
 
-def extract_result_url(payload: dict[str, Any]) -> str:
-    candidates: list[Any] = []
+def normalize_runninghub_outputs(response: Any) -> list[Any]:
+    if response is None:
+        return []
+    if isinstance(response, (str, int, float)):
+        return [str(response)]
+    if isinstance(response, list):
+        return response
+    if isinstance(response, dict):
+        for key in ("data", "result", "outputs", "output", "files", "images"):
+            value = response.get(key)
+            if value is not None:
+                return normalize_runninghub_outputs(value)
+        return [response]
+    return []
+
+
+def extract_output_refs(response: Any) -> list[str]:
+    refs: list[str] = []
+    output_key_names = {
+        "url",
+        "imageurl",
+        "image_url",
+        "fileurl",
+        "file_url",
+        "originfileurl",
+        "origin_file_url",
+        "downloadurl",
+        "download_url",
+        "fileid",
+        "file_id",
+        "id",
+        "filename",
+        "fileName".lower(),
+        "path",
+        "name",
+    }
+
+    def add_ref(candidate: Any):
+        text = str(candidate or "").strip()
+        if text and text not in refs:
+            refs.append(text)
 
     def collect(value: Any):
         if isinstance(value, dict):
             for key, item in value.items():
                 key_text = str(key).lower()
-                if key_text in {
-                    "url",
-                    "imageurl",
-                    "image_url",
-                    "fileurl",
-                    "file_url",
-                    "originfileurl",
-                    "origin_file_url",
-                    "downloadurl",
-                    "download_url",
-                }:
-                    candidates.append(item)
+                if key_text in output_key_names:
+                    add_ref(item)
                 collect(item)
-        elif isinstance(value, list):
+        elif isinstance(value, (list, tuple)):
             for item in value:
                 collect(item)
         elif isinstance(value, str):
-            candidates.append(value)
+            add_ref(value)
 
-    collect(payload)
-    for candidate in candidates:
-        candidate_text = str(candidate or "").strip()
+    for output in normalize_runninghub_outputs(response):
+        collect(output)
+    return refs
+
+
+def extract_result_url(payload: Any) -> str:
+    for candidate_text in extract_output_refs(payload):
         if candidate_text.startswith("http://") or candidate_text.startswith("https://"):
             return candidate_text
     return ""

@@ -119,6 +119,14 @@ RunningHub 接入时不再把裸标题直接提交给 prompt 节点，而是本�
 - 不写入 `resource/`。
 - 不写入仓库源码目录的 output。
 
+## RunningHub 输出解析边界
+
+- WebUI 依赖 `restaurant_engine.runninghub_cover` 返回的 `cover_batch_report.json`。
+- provider 需要兼容真实 RunningHub status / outputs 中的 string、dict、list 和 nested dict 结构。
+- 如果真实 task 失败或输出结构未知，WebUI 展示受控 warning，不展示 Python traceback。
+- `remote_result_url` 只允许保存脱敏 URL，不得展示或写入敏感 signed query。
+- 修复 parser 后，可使用已提交 task id 查询输出；不得把该查询视为新的封面生成任务。
+
 ## 当前边界
 
 - 这是临时 prototype / validation 入口。
