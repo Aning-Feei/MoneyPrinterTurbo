@@ -25,10 +25,41 @@ COVER_PLAN_VERSION = "cover-plan-v1"
 COVER_PLANNER_NAME = "local_static"
 COVER_RENDER_STATUS = "not_rendered"
 TITLE_PROVIDER = "local_static"
+TITLE_QUALITY_VERSION = "cover-title-quality-v1"
 DEFAULT_TITLES = (
-    "这一口真的有记忆点",
-    "今天这顿吃得很满足",
-    "这家小店有点想再来",
+    "这口好味越吃越香",
+    "这一桌烟火气正好",
+    "今晚就约这家餐厅",
+)
+WEAK_TITLE_TERMS = (
+    "值得一试",
+    "聚餐首选",
+    "发现这家",
+    "不容错过",
+    "强烈推荐",
+    "必吃",
+    "宝藏",
+    "绝了",
+)
+EXAGGERATED_TITLE_TERMS = (
+    "全城第一",
+    "天花板",
+    "史上最强",
+    "全网爆火",
+    "100%好吃",
+    "100% 好吃",
+    "不吃后悔",
+    "销量第一",
+    "冠军",
+    "最低价",
+)
+PLACEHOLDER_TITLE_TERMS = (
+    "mock",
+    "placeholder",
+    "todo",
+    "待填写",
+    "标题",
+    "示例",
 )
 
 
@@ -99,10 +130,7 @@ def get_theme_text(project: dict[str, Any]) -> str:
 
 
 def build_title_candidates(theme_text: str) -> list[TitleCandidate]:
-    if not theme_text:
-        title_texts = DEFAULT_TITLES
-    else:
-        title_texts = build_short_video_cover_titles(theme_text)
+    title_texts = build_high_quality_cover_title_texts(theme_text, batch_index=1)
     return [
         TitleCandidate(
             title_id=f"title_{index}",
@@ -113,63 +141,250 @@ def build_title_candidates(theme_text: str) -> list[TitleCandidate]:
     ]
 
 
-def build_short_video_cover_titles(theme_text: str) -> tuple[str, str, str]:
+def build_high_quality_cover_titles(
+    theme_text: str, batch_index: int = 1
+) -> list[dict[str, Any]]:
+    """Build 3 local_static cover titles with quality metadata."""
+
+    title_texts = build_high_quality_cover_title_texts(theme_text, batch_index)
+    titles: list[dict[str, Any]] = []
+    for index, text in enumerate(title_texts, start=1):
+        quality = validate_cover_title_quality(text)
+        titles.append(
+            {
+                "title_id": f"title_{index}",
+                "text": text,
+                "source": TITLE_PROVIDER,
+                "batch_index": batch_index,
+                "title_quality_passed": quality["passed"],
+                "title_quality_warnings": quality["warnings"],
+                "title_quality_version": TITLE_QUALITY_VERSION,
+            }
+        )
+    return titles
+
+
+def build_high_quality_cover_title_texts(
+    theme_text: str, batch_index: int = 1
+) -> tuple[str, str, str]:
+    groups = build_cover_title_groups(theme_text)
+    offset = max(0, int(batch_index or 1) - 1)
+    selected: list[str] = []
+    for group in groups:
+        selected.append(group[offset % len(group)])
+
+    if len(set(selected)) < 3:
+        fallback_groups = build_cover_title_groups("")
+        for group in fallback_groups:
+            candidate = group[offset % len(group)]
+            if candidate not in selected:
+                selected.append(candidate)
+            if len(set(selected)) >= 3:
+                break
+
+    cleaned: list[str] = []
+    for title in selected:
+        candidate = sanitize_cover_title(title)
+        quality = validate_cover_title_quality(candidate)
+        if quality["passed"] and candidate not in cleaned:
+            cleaned.append(candidate)
+        if len(cleaned) == 3:
+            break
+
+    if len(cleaned) < 3:
+        for title in DEFAULT_TITLES:
+            candidate = sanitize_cover_title(title)
+            if validate_cover_title_quality(candidate)["passed"] and candidate not in cleaned:
+                cleaned.append(candidate)
+            if len(cleaned) == 3:
+                break
+
+    return tuple(cleaned[:3])  # type: ignore[return-value]
+
+
+def build_cover_title_groups(theme_text: str) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     normalized = normalize_theme_text(theme_text)
 
     if contains_any(normalized, ("火锅",)):
-        if contains_any(normalized, ("四川", "川味", "川菜", "麻辣", "热辣")):
-            return (
-                "这锅川味越吃越上头",
-                "朋友聚餐就该吃这锅",
-                "藏不住的热辣火锅局",
-            )
         return (
-            "热气一上桌就有氛围",
-            "朋友聚餐就该吃这锅",
-            "这一锅越吃越有味",
+            (
+                "这锅川味越吃越上头",
+                "热辣这一锅真香",
+                "一口麻辣就开胃",
+                "川味一上桌就馋",
+            ),
+            (
+                "朋友聚餐就该吃这锅",
+                "今晚就约这锅热辣",
+                "热闹饭局从这锅开始",
+                "这一锅适合凑齐朋友",
+            ),
+            (
+                "藏不住的热辣火锅局",
+                "烟火气里的热辣局",
+                "热辣氛围一秒开场",
+                "这一桌热辣有氛围",
+            ),
         )
 
     if contains_any(normalized, ("烤鱼", "小龙虾")):
         return (
-            "招牌味一上桌就香",
-            "这顿聚餐热闹得刚好",
-            "越吃越有味的这一桌",
+            (
+                "招牌烤鱼一口入戏",
+                "小龙虾上桌就热闹",
+                "这一口鲜辣很开胃",
+                "热辣招牌越吃越香",
+            ),
+            (
+                "朋友聚餐就爱这一桌",
+                "这桌热闹刚好开场",
+                "下班就约这顿热辣",
+                "这一桌适合慢慢吃",
+            ),
+            (
+                "川味烟火气扑面而来",
+                "热辣香气一秒到位",
+                "越吃越有氛围的一桌",
+                "藏不住的招牌香气",
+            ),
         )
 
     if contains_any(normalized, ("川菜", "四川", "川味", "麻辣", "热辣")):
         return (
-            "这口川味越吃越上头",
-            "朋友聚餐就爱这一桌",
-            "藏不住的热辣川味",
+            (
+                "这口川味越吃越上头",
+                "川味一上桌就开胃",
+                "麻辣鲜香一口入魂",
+                "这一口热辣真带劲",
+            ),
+            (
+                "朋友聚餐就爱这一桌",
+                "热闹饭局就从这桌开始",
+                "今晚就约这桌川味",
+                "下班聚餐就想吃这口",
+            ),
+            (
+                "藏不住的热辣川味",
+                "一桌川味烟火气拉满",
+                "这桌热辣氛围正好",
+                "香气一上桌就热闹",
+            ),
         )
 
     if contains_any(normalized, ("咖啡", "甜品", "下午茶", "蛋糕", "烘焙")):
         return (
-            "下午茶就该这样放松",
-            "甜品咖啡拍照刚刚好",
-            "这一口甜得很有氛围",
+            (
+                "这口甜香刚好治愈",
+                "咖啡香里慢慢发光",
+                "甜品一上桌就心动",
+                "这一口甜得很有氛围",
+            ),
+            (
+                "下午茶就该这样拍",
+                "和朋友慢慢坐一下午",
+                "今天把甜品时间留给自己",
+                "这家适合慢慢发呆",
+            ),
+            (
+                "甜香氛围感刚刚好",
+                "镜头里的下午茶很出片",
+                "这一桌甜得很轻松",
+                "咖啡甜品拍照正好",
+            ),
         )
 
     if contains_any(normalized, ("烧烤", "烤肉", "串串")):
         return (
-            "烟火气一上来就饿了",
-            "朋友聚餐就爱这一口",
-            "越烤越香的热闹局",
+            (
+                "烟火气一上来就饿了",
+                "越烤越香的热闹局",
+                "这一口炭火香很上头",
+                "热辣串串越吃越香",
+            ),
+            (
+                "朋友夜宵就约这一桌",
+                "下班就来这桌烟火气",
+                "今晚把热闹交给这一桌",
+                "这顿适合边聊边吃",
+            ),
+            (
+                "烟火气把氛围拉满",
+                "烤香一出来就热闹",
+                "这一桌夜晚刚刚好",
+                "热闹食光从这桌开始",
+            ),
         )
 
-    if contains_any(normalized, ("海鲜", "粤菜", "茶餐厅", "面馆", "日料", "韩餐", "西餐")):
-        focus = extract_title_focus(theme_text)
-        return (
-            limit_title(f"{focus}这一口很有记忆点"),
-            "这顿饭吃得刚刚好",
+    return (
+        (
+            "这口好味越吃越香",
+            "一上桌就有烟火气",
+            "这一口很有记忆点",
+            "好味道一秒开场",
+        ),
+        (
+            "今晚就约这家餐厅",
+            "朋友聚餐就坐这一桌",
+            "下班后就想吃这一顿",
+            "这一桌适合慢慢聊",
+        ),
+        (
+            "这一桌烟火气正好",
             "藏在日常里的好味道",
-        )
+            "镜头里的餐厅很有氛围",
+            "这顿饭的氛围刚刚好",
+        ),
+    )
 
-    return DEFAULT_TITLES
+
+def build_short_video_cover_titles(theme_text: str) -> tuple[str, str, str]:
+    return build_high_quality_cover_title_texts(theme_text, batch_index=1)
+
+
+def validate_cover_title_quality(title_text: str) -> dict[str, Any]:
+    title = sanitize_cover_title(title_text)
+    warnings: list[str] = []
+    passed = True
+
+    cjk_count = count_cjk_chars(title)
+    if cjk_count < 6:
+        warnings.append("TITLE_TOO_SHORT")
+        passed = False
+    if cjk_count > 16:
+        warnings.append("TITLE_TOO_LONG")
+        passed = False
+    if contains_any(title, WEAK_TITLE_TERMS):
+        warnings.append("WEAK_TEMPLATE_TERM")
+        passed = False
+    if contains_any(title, EXAGGERATED_TITLE_TERMS):
+        warnings.append("EXAGGERATED_CLAIM")
+        passed = False
+    lowered = title.lower()
+    if any(term in lowered for term in PLACEHOLDER_TITLE_TERMS):
+        warnings.append("PLACEHOLDER_TITLE")
+        passed = False
+    if re.search(r"\d+\s*(折|元|块|名|强|大)", title):
+        warnings.append("RANKING_OR_PRICE_PROMISE")
+        passed = False
+
+    return {
+        "version": TITLE_QUALITY_VERSION,
+        "passed": passed,
+        "warnings": warnings,
+        "cjk_char_count": cjk_count,
+    }
 
 
 def normalize_theme_text(theme_text: str) -> str:
     return re.sub(r"\s+", "", str(theme_text or ""))
+
+
+def sanitize_cover_title(title_text: str) -> str:
+    return re.sub(r"\s+", "", str(title_text or "")).strip("，,。.!！?？：:；;")
+
+
+def count_cjk_chars(text: str) -> int:
+    return len(re.findall(r"[\u4e00-\u9fff]", str(text or "")))
 
 
 def contains_any(text: str, markers: tuple[str, ...]) -> bool:

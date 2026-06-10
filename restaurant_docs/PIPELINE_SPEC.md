@@ -711,9 +711,24 @@ TTS contract 当前规则：
 
 - `title_provider` 仍为 `local_static`。
 - 标题候选仍固定输出 3 个。
-- 第 4 阶段已避免 `值得一试`、`聚餐首选`、`发现这家` 等弱模板后缀。
+- 第 4 阶段已避免 `值得一试`、`聚餐首选`、`发现这家`、`不容错过`、`强烈推荐`、`必吃`、`宝藏`、`绝了` 等弱模板。
+- 第 4 阶段已避免 `全城第一`、`天花板`、`史上最强`、`全网爆火`、`100% 好吃`、`不吃后悔` 等夸张承诺。
+- 标题质量规则版本：`cover-title-quality-v1`。
 - 当前本地规则按餐饮品类和场景生成更适合短视频封面的标题。
+- 重新生成封面时会按 batch index 刷新标题批次。
 - 该逻辑仍不调用 DeepSeek、LLM、视觉模型或任何非 RunningHub 外部 API。
+
+RunningHub 封面 prompt 和比例 contract：
+
+- RunningHub `3.prompt` 节点接收完整 `cover_prompt`，不再只接收裸标题。
+- `cover_prompt` 由本地 deterministic helper 生成，包含主题、标题文字、视频比例和封面风格要求。
+- prompt 风格版本：`cover-prompt-style-v1`。
+- 示例：`文字：“这锅川味越吃越上头”`、`比例：9:16`。
+- WebUI 复用现有 `视频比例` 字段，支持 `9:16` 和 `16:9`，不新增比例控件。
+- 如配置 `RUNNINGHUB_COVER_RATIO_NODE_ID` 和 `RUNNINGHUB_COVER_RATIO_NODE_FIELD`，provider 会向独立比例节点提交映射值。
+- 如未配置比例节点，provider 只在 prompt 中声明比例，并在 report warning 记录 `RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY`。
+- `cover_batch_report.json` 顶层记录 `aspect_ratio`、`prompt_style_version`、`title_quality_version`。
+- 每个 variant 记录 `title_quality_passed`、`title_quality_warnings`、`cover_prompt`、`prompt_source`、`aspect_ratio`。
 
 当前入口不做：
 

@@ -2837,3 +2837,41 @@ restaurant_engine 最小兼容：
 - 未生成音频或视频。
 - 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
 - 本轮暂不 commit。
+
+## 第 4 阶段：RunningHub 封面提示词与视频比例参数接入
+
+任务目标：
+- 升级 RunningHub 封面生成的本地标题质量、完整封面提示词和视频比例参数。
+- 不进入第 5 阶段，不生成音频或视频。
+
+本轮调整：
+- `cover_planner` 新增本地标题质量规则：
+  - 标题仍为 `local_static`。
+  - 建议 6–16 个中文字符。
+  - 禁用弱模板：`值得一试`、`聚餐首选`、`发现这家`、`不容错过`、`强烈推荐`、`必吃`、`宝藏`、`绝了`。
+  - 禁用夸张承诺：`全城第一`、`天花板`、`史上最强`、`全网爆火`、`100% 好吃`、`不吃后悔`。
+  - 重新生成封面时按 batch index 刷新标题批次。
+- `runninghub_cover` 新增 `cover_prompt`：
+  - prompt 包含主题、标题、比例、艺术感、顶级设计感、爆款封面等要求。
+  - RunningHub prompt 节点接收完整 `cover_prompt`，不再只接收裸标题。
+- WebUI `生成封面` 复用现有 `视频比例` 设置：
+  - 支持 `9:16` 和 `16:9`。
+  - 不新增比例控件。
+- RunningHub provider 新增可选 ratio node 环境变量：
+  - `RUNNINGHUB_COVER_RATIO_NODE_ID`
+  - `RUNNINGHUB_COVER_RATIO_NODE_FIELD`
+  - `RUNNINGHUB_COVER_RATIO_16_9_VALUE`
+  - `RUNNINGHUB_COVER_RATIO_9_16_VALUE`
+- 未配置 ratio node 时，provider 将比例写入 prompt，并记录 `RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY`。
+- `cover_batch_report.json` 新增 prompt / ratio / title quality 字段。
+- WebUI 不展示标题候选列表，只展示封面编号、预览、选中状态、比例、渲染状态和 warning。
+
+安全边界：
+- 未执行真实 RunningHub 调用。
+- 未调用 DeepSeek。
+- 未调用 LLM。
+- 未调用非 RunningHub 外部 API。
+- 未调用 TTS。
+- 未生成音频或视频。
+- 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
+- 本轮暂不 commit，等待浏览器确认和提交前复核。

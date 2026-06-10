@@ -6,7 +6,6 @@ import random
 import sys
 import tempfile
 import webbrowser
-from dataclasses import asdict
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -33,7 +32,7 @@ from app.models.schema import (
 from app.services import llm, voice
 from app.services import task as tm
 from app.utils import utils
-from restaurant_engine.cover_planner import build_title_candidates
+from restaurant_engine.cover_planner import build_high_quality_cover_titles
 from restaurant_engine.models import ImageFile
 from restaurant_engine import runninghub_cover
 from restaurant_engine.storyboard_planner import build_mock_storyboard
@@ -438,18 +437,12 @@ def safe_cover_upload_name(index: int, original_name: str) -> str:
     return f"{index:03d}_{safe_root[:40]}{ext}"
 
 
-def cover_title_candidates_to_dicts(theme_text: str) -> list[dict]:
-    return [asdict(candidate) for candidate in build_title_candidates(theme_text)]
-
-
 def build_cover_title_batch(theme_text: str, batch_index: int) -> list[dict]:
-    candidates = cover_title_candidates_to_dicts(theme_text)
+    candidates = build_high_quality_cover_titles(theme_text, batch_index=batch_index)
     if not candidates:
         return []
-    rotation = max(0, int(batch_index or 0) - 1) % len(candidates)
-    rotated = candidates[rotation:] + candidates[:rotation]
     title_batch = []
-    for index, candidate in enumerate(rotated[:3], start=1):
+    for index, candidate in enumerate(candidates[:3], start=1):
         title_batch.append(
             {
                 **candidate,
@@ -611,6 +604,14 @@ def render_cover_batch_result(report: dict):
                 st.image(local_cover_image_path, use_container_width=True)
             else:
                 st.warning("封面图生成失败。")
+            st.caption(
+                f"比例：{variant.get('aspect_ratio') or report.get('aspect_ratio') or '-'} · "
+                f"状态：{variant.get('render_status') or '-'}"
+            )
+            variant_warnings = variant.get("warnings") or []
+            title_warnings = variant.get("title_quality_warnings") or []
+            if variant_warnings or title_warnings:
+                st.warning(" / ".join([*variant_warnings, *title_warnings]))
             if st.button(
                 "选择此封面",
                 key=f"restaurant_select_{variant_id}_{report.get('batch_index')}",
@@ -634,6 +635,7 @@ def render_cover_batch_result(report: dict):
                 "restaurant_cover_selected_variant_id"
             ),
             "variant_count": len(variants),
+            "aspect_ratio": report.get("aspect_ratio"),
             "external_api_called": report.get("external_api_called"),
             "blocking": report.get("blocking"),
             "cover_batch_report": display_safe_path(
@@ -643,7 +645,11 @@ def render_cover_batch_result(report: dict):
     )
 
 
-def render_restaurant_cover_prototype(theme_text: str, uploaded_image_files=None):
+def render_restaurant_cover_prototype(
+    theme_text: str,
+    uploaded_image_files=None,
+    aspect_ratio: str = "9:16",
+):
     cover_image_files = [
         uploaded_file
         for uploaded_file in (uploaded_image_files or [])
@@ -691,6 +697,7 @@ def render_restaurant_cover_prototype(theme_text: str, uploaded_image_files=None
                     selected_images=selected_images,
                     output_dir=os.path.join(run_dir, "output"),
                     batch_index=batch_index,
+                    aspect_ratio=aspect_ratio,
                 )
         except runninghub_cover.RunningHubCoverConfigurationError as exc:
             st.error(str(exc))
@@ -2053,7 +2060,11 @@ with middle_panel:
                 uploaded_files=uploaded_files,
                 persisted_materials=st.session_state["local_video_materials"],
                 after_image_count=lambda: render_restaurant_cover_prototype(
-                    params.video_subject, uploaded_files
+                    params.video_subject,
+                    uploaded_files,
+                    params.video_aspect.value
+                    if hasattr(params.video_aspect, "value")
+                    else str(params.video_aspect or "9:16"),
                 ),
             )
             config.app["video_source"] = "local"

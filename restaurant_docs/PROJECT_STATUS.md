@@ -2105,3 +2105,29 @@ project.json
 - 未调用 DeepSeek、LLM、TTS、音频或视频生成。
 - 未修改 `app/`、`config.toml`、`storage/` 或 `resource/`。
 - 本轮暂不 commit。
+
+## 第 4 阶段：RunningHub 封面提示词与视频比例参数接入
+
+- 继续完善 RunningHub 封面生成质量，不进入第 5 阶段。
+- 标题仍为本地 `local_static`，不调用 DeepSeek、LLM 或外部文案 API。
+- 本地标题规则升级为更适合短视频封面的 3 条高吸引力标题：
+  - 建议 6–16 个中文字符。
+  - 禁用 `值得一试`、`聚餐首选`、`发现这家`、`不容错过`、`强烈推荐`、`必吃`、`宝藏`、`绝了` 等弱模板。
+  - 禁用 `全城第一`、`天花板`、`史上最强`、`全网爆火`、`100% 好吃`、`不吃后悔` 等夸张承诺。
+  - 重新生成封面时会按 batch index 刷新标题批次。
+- RunningHub prompt 节点改为接收完整 `cover_prompt`：
+  - 包含主题、标题文字、艺术感/顶级设计感/爆款封面等风格要求。
+  - 包含 `文字：“...”`。
+  - 包含当前视频比例。
+- WebUI 复用现有 `视频比例` 字段，支持 `9:16` 和 `16:9`，不新增重复控件。
+- RunningHub provider 新增可选比例节点配置：
+  - `RUNNINGHUB_COVER_RATIO_NODE_ID`
+  - `RUNNINGHUB_COVER_RATIO_NODE_FIELD`
+  - `RUNNINGHUB_COVER_RATIO_16_9_VALUE`
+  - `RUNNINGHUB_COVER_RATIO_9_16_VALUE`
+- 未配置比例节点时，比例仍写入 prompt，并在 report 记录 `RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY`。
+- `cover_batch_report.json` 新增记录：
+  - 顶层 `aspect_ratio`、`prompt_style_version`、`title_quality_version`。
+  - variant 级 `title_quality_passed`、`title_quality_warnings`、`cover_prompt`、`prompt_source`、`aspect_ratio`。
+- WebUI 仍不展示标题候选列表或标题选择 UI，只展示封面编号、预览、选中状态、比例、渲染状态和 warning。
+- 本轮不执行真实 RunningHub smoke，不调用 DeepSeek、LLM、TTS，不生成音频或视频。

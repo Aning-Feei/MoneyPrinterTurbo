@@ -9,12 +9,18 @@ from typing import Any
 
 import requests
 
+from .cover_planner import TITLE_QUALITY_VERSION, validate_cover_title_quality
+
 
 COVER_BATCH_VERSION = "runninghub-cover-batch-v1"
 COVER_PROVIDER = "runninghub"
 COVER_OUTPUT_WIDTH = 1080
 COVER_OUTPUT_HEIGHT = 1920
 MIN_REQUIRED_IMAGES = 3
+PROMPT_STYLE_VERSION = "cover-prompt-style-v1"
+DEFAULT_ASPECT_RATIO = "9:16"
+SUPPORTED_ASPECT_RATIOS = {"9:16", "16:9"}
+RATIO_NODE_NOT_CONFIGURED_WARNING = "RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY"
 
 
 class RunningHubCoverConfigurationError(Exception):
@@ -35,6 +41,10 @@ class RunningHubCoverConfig:
     title_node_field: str = "prompt"
     output_node_id: str = ""
     output_node_field: str = "images"
+    ratio_node_id: str = ""
+    ratio_node_field: str = "ratio"
+    ratio_16_9_value: str = "16:9"
+    ratio_9_16_value: str = "9:16"
     api_base: str = "https://www.runninghub.ai"
     poll_interval_seconds: float = 3.0
     timeout_seconds: float = 180.0
@@ -84,6 +94,19 @@ class RunningHubCoverConfig:
                 "RUNNINGHUB_COVER_OUTPUT_NODE_FIELD", "images"
             ).strip()
             or "images",
+            ratio_node_id=os.environ.get("RUNNINGHUB_COVER_RATIO_NODE_ID", "").strip(),
+            ratio_node_field=os.environ.get(
+                "RUNNINGHUB_COVER_RATIO_NODE_FIELD", "ratio"
+            ).strip()
+            or "ratio",
+            ratio_16_9_value=os.environ.get(
+                "RUNNINGHUB_COVER_RATIO_16_9_VALUE", "16:9"
+            ).strip()
+            or "16:9",
+            ratio_9_16_value=os.environ.get(
+                "RUNNINGHUB_COVER_RATIO_9_16_VALUE", "9:16"
+            ).strip()
+            or "9:16",
             api_base=os.environ.get("RUNNINGHUB_API_BASE", "https://www.runninghub.ai")
             .strip()
             .rstrip("/"),
@@ -127,11 +150,22 @@ class RunningHubCoverClient:
             "raw": payload,
         }
 
-    def submit_cover_task(self, image_ref: str, title_text: str) -> dict[str, Any]:
+    def submit_cover_task(
+        self,
+        image_ref: str,
+        title_text: str,
+        cover_prompt: str,
+        aspect_ratio: str,
+    ) -> dict[str, Any]:
         payload = {
             "apiKey": self.config.api_key,
             "workflowId": self.config.workflow_id,
-            "nodeInfoList": self._node_info_list(image_ref, title_text),
+            "nodeInfoList": self._node_info_list(
+                image_ref=image_ref,
+                title_text=title_text,
+                cover_prompt=cover_prompt,
+                aspect_ratio=aspect_ratio,
+            ),
         }
         response = requests.post(
             self._url(self.config.create_endpoint),
@@ -217,13 +251,23 @@ class RunningHubCoverClient:
             "Authorization": f"Bearer {self.config.api_key}",
         }
 
-    def _node_info_list(self, image_ref: str, title_text: str) -> list[dict[str, Any]]:
+    def _node_info_list(
+        self,
+        image_ref: str,
+        title_text: str,
+        cover_prompt: str,
+        aspect_ratio: str,
+    ) -> list[dict[str, Any]]:
         if self.config.node_info_json:
             template = json.loads(self.config.node_info_json)
             if isinstance(template, dict) and "nodeInfoList" in template:
                 template = template["nodeInfoList"]
             mapped = replace_node_placeholders(
-                template, image_ref=image_ref, title_text=title_text
+                template,
+                image_ref=image_ref,
+                title_text=title_text,
+                cover_prompt=cover_prompt,
+                aspect_ratio=aspect_ratio,
             )
             if isinstance(mapped, dict):
                 mapped = [mapped]
@@ -232,7 +276,7 @@ class RunningHubCoverClient:
                     "RunningHub 封面生成配置缺失，请配置 API Key 和 workflow 信息。"
                 )
             return mapped
-        return [
+        node_info_list = [
             {
                 "nodeId": self.config.image_node_id,
                 "fieldName": self.config.image_node_field,
@@ -241,9 +285,18 @@ class RunningHubCoverClient:
             {
                 "nodeId": self.config.title_node_id,
                 "fieldName": self.config.title_node_field,
-                "fieldValue": title_text,
+                "fieldValue": cover_prompt,
             },
         ]
+        if self.config.ratio_node_id:
+            node_info_list.append(
+                {
+                    "nodeId": self.config.ratio_node_id,
+                    "fieldName": self.config.ratio_node_field,
+                    "fieldValue": ratio_value_for_config(self.config, aspect_ratio),
+                }
+            )
+        return node_info_list
 
     @staticmethod
     def _json_response(response, action: str) -> dict[str, Any]:
@@ -257,17 +310,68 @@ class RunningHubCoverClient:
         return {"data": payload}
 
 
-def replace_node_placeholders(value, image_ref: str, title_text: str):
+def replace_node_placeholders(
+    value,
+    image_ref: str,
+    title_text: str,
+    cover_prompt: str,
+    aspect_ratio: str,
+):
     if isinstance(value, dict):
         return {
-            key: replace_node_placeholders(item, image_ref, title_text)
+            key: replace_node_placeholders(
+                item, image_ref, title_text, cover_prompt, aspect_ratio
+            )
             for key, item in value.items()
         }
     if isinstance(value, list):
-        return [replace_node_placeholders(item, image_ref, title_text) for item in value]
+        return [
+            replace_node_placeholders(
+                item, image_ref, title_text, cover_prompt, aspect_ratio
+            )
+            for item in value
+        ]
     if isinstance(value, str):
-        return value.replace("{{image}}", image_ref).replace("{{title}}", title_text)
+        return (
+            value.replace("{{image}}", image_ref)
+            .replace("{{title_text}}", title_text)
+            .replace("{{title}}", cover_prompt)
+            .replace("{{cover_prompt}}", cover_prompt)
+            .replace("{{aspect_ratio}}", aspect_ratio)
+            .replace("{{ratio}}", aspect_ratio)
+        )
     return value
+
+
+def normalize_aspect_ratio(value: str | None) -> str:
+    text = str(value or "").strip()
+    if "16:9" in text or text == "landscape":
+        return "16:9"
+    if "9:16" in text or text == "portrait":
+        return "9:16"
+    return DEFAULT_ASPECT_RATIO
+
+
+def ratio_value_for_config(config: RunningHubCoverConfig, aspect_ratio: str) -> str:
+    normalized = normalize_aspect_ratio(aspect_ratio)
+    if normalized == "16:9":
+        return config.ratio_16_9_value
+    return config.ratio_9_16_value
+
+
+def build_cover_prompt(title_text: str, aspect_ratio: str, theme_text: str = "") -> str:
+    title = str(title_text or "").strip()
+    ratio = normalize_aspect_ratio(aspect_ratio)
+    theme = str(theme_text or "").strip() or "餐饮短视频封面"
+    return (
+        "餐饮短视频爆款封面设计，艺术感，顶级设计感，高级商业海报质感，"
+        "画面有食欲和烟火气，适合社交媒体点击；"
+        f"主题：{theme}；"
+        f"文字：“{title}”；"
+        f"比例：{ratio}；"
+        "文字必须清晰醒目，中文排版稳定，主体美食和餐厅氛围突出，"
+        "避免多余小字、二维码、电话、价格、夸张营销词。"
+    )
 
 
 def extract_upload_ref(payload: dict[str, Any]) -> str:
@@ -353,6 +457,7 @@ def generate_runninghub_cover_batch(
     selected_images: list[dict[str, Any]],
     output_dir: str | Path,
     batch_index: int,
+    aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     client: Any | None = None,
 ) -> dict[str, Any]:
     output_path = Path(output_dir).expanduser().resolve()
@@ -360,6 +465,12 @@ def generate_runninghub_cover_batch(
     warnings: list[str] = []
     variants: list[dict[str, Any]] = []
     client = client or RunningHubCoverClient()
+    normalized_aspect_ratio = normalize_aspect_ratio(aspect_ratio)
+    ratio_node_configured = bool(
+        getattr(getattr(client, "config", None), "ratio_node_id", "")
+    )
+    if not ratio_node_configured:
+        warnings.append(RATIO_NODE_NOT_CONFIGURED_WARNING)
 
     if len(selected_images) < MIN_REQUIRED_IMAGES:
         raise RunningHubCoverError("At least 3 uploaded images are required.")
@@ -375,11 +486,29 @@ def generate_runninghub_cover_batch(
         status = "failed"
         output_width = 0
         output_height = 0
+        title_text = str(title.get("text") or "").strip()
+        title_quality = validate_cover_title_quality(title_text)
+        title_quality_passed = bool(
+            title.get("title_quality_passed", title_quality["passed"])
+        )
+        title_quality_warnings = list(
+            title.get("title_quality_warnings") or title_quality["warnings"]
+        )
+        cover_prompt = build_cover_prompt(
+            title_text=title_text,
+            aspect_ratio=normalized_aspect_ratio,
+            theme_text=theme_text,
+        )
+        variant_warnings: list[str] = []
+        if not ratio_node_configured:
+            variant_warnings.append(RATIO_NODE_NOT_CONFIGURED_WARNING)
         try:
             upload = client.upload_image(image["path"])
             submit = client.submit_cover_task(
                 str(upload.get("upload_ref") or ""),
-                str(title.get("text") or ""),
+                title_text,
+                cover_prompt,
+                normalized_aspect_ratio,
             )
             task_id = str(submit.get("task_id") or "")
             if not task_id:
@@ -401,8 +530,13 @@ def generate_runninghub_cover_batch(
             {
                 "variant_id": variant_id,
                 "title_id": title.get("title_id") or f"title_{index}",
-                "title_text": title.get("text") or "",
+                "title_text": title_text,
                 "title_source": title.get("source") or "local_static",
+                "title_quality_passed": title_quality_passed,
+                "title_quality_warnings": title_quality_warnings,
+                "cover_prompt": cover_prompt,
+                "prompt_source": "local_prompt_template",
+                "aspect_ratio": normalized_aspect_ratio,
                 "source_image_path": image.get("path") or "",
                 "source_image_name": image.get("display_name") or image.get("file_name") or "",
                 "runninghub_task_id": task_id,
@@ -414,6 +548,7 @@ def generate_runninghub_cover_batch(
                 "output_width": output_width,
                 "output_height": output_height,
                 "external_api_called": True,
+                "warnings": variant_warnings,
             }
         )
 
@@ -435,6 +570,9 @@ def generate_runninghub_cover_batch(
         "external_api_called": True,
         "batch_index": batch_index,
         "theme_text": theme_text,
+        "aspect_ratio": normalized_aspect_ratio,
+        "prompt_style_version": PROMPT_STYLE_VERSION,
+        "title_quality_version": TITLE_QUALITY_VERSION,
         "min_required_images": MIN_REQUIRED_IMAGES,
         "uploaded_image_count": len(selected_images),
         "selected_cover_variant_id": selected_variant_id,
@@ -467,10 +605,22 @@ class FakeRunningHubCoverClient:
     def upload_image(self, image_path: str | Path) -> dict[str, Any]:
         return {"upload_ref": str(Path(image_path).name)}
 
-    def submit_cover_task(self, image_ref: str, title_text: str) -> dict[str, Any]:
+    def submit_cover_task(
+        self,
+        image_ref: str,
+        title_text: str,
+        cover_prompt: str,
+        aspect_ratio: str,
+    ) -> dict[str, Any]:
         task_id = f"fake-task-{len(self.submitted_tasks) + 1}"
         self.submitted_tasks.append(
-            {"task_id": task_id, "image_ref": image_ref, "title_text": title_text}
+            {
+                "task_id": task_id,
+                "image_ref": image_ref,
+                "title_text": title_text,
+                "cover_prompt": cover_prompt,
+                "aspect_ratio": aspect_ratio,
+            }
         )
         return {"task_id": task_id}
 

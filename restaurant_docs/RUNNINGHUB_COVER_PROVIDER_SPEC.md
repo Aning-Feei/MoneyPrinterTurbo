@@ -14,12 +14,12 @@
 1. `文案设置` 中按钮显示为 `生成视频文案`，只生成本地 prototype 视频文案。
 2. WebUI 不展示标题候选列表，也不提供标题选择控件。
 3. 用户上传至少 3 张图片后，`生成封面` 按钮可点击。
-4. 点击 `生成封面` 后，后台本地生成 3 条 `local_static` 标题。
+4. 点击 `生成封面` 后，后台本地生成 3 条 `local_static` 高吸引力标题。
 5. 系统随机选择 3 张用户上传图片。
 6. 系统提交 3 个 RunningHub 封面任务：
-   - `title_1 + image_1`
-   - `title_2 + image_2`
-   - `title_3 + image_3`
+   - `title_1 + cover_prompt + aspect_ratio + image_1`
+   - `title_2 + cover_prompt + aspect_ratio + image_2`
+   - `title_3 + cover_prompt + aspect_ratio + image_3`
 7. RunningHub 返回 3 张封面图后，WebUI 展示 3 张封面。
 8. 用户可选择其中 1 张封面，选中项会高亮并写入 session state。
 9. 成功生成后按钮文案变为 `重新生成封面`，再次点击会刷新标题批次、随机图片和 3 张封面。
@@ -38,6 +38,26 @@ restaurant_engine/runninghub_cover.py
 - 轮询 / 查询任务结果。
 - 下载生成图片。
 - 输出 `cover_batch_report.json`。
+
+## 标题与提示词
+
+- 标题来源仍为 `local_static`，不调用 DeepSeek、LLM 或其他外部 API。
+- 每批生成 3 条短视频封面标题，重新生成时会按 batch index 刷新标题批次。
+- 标题质量规则版本：`cover-title-quality-v1`。
+- 标题建议为 6–16 个中文字符，避免弱模板和夸张承诺。
+- 禁用弱模板包括：`值得一试`、`聚餐首选`、`发现这家`、`不容错过`、`强烈推荐`、`必吃`、`宝藏`、`绝了`。
+- 禁用夸张承诺包括：`全城第一`、`天花板`、`史上最强`、`全网爆火`、`100% 好吃`、`不吃后悔`。
+- RunningHub prompt 节点接收完整 `cover_prompt`，不再只接收裸标题。
+- prompt 风格版本：`cover-prompt-style-v1`。
+
+示例：
+
+```text
+文字：“这锅川味越吃越上头”
+比例：9:16
+```
+
+`cover_prompt` 会包含餐饮短视频爆款封面、艺术感、顶级设计感、中文排版清晰、主题、标题和比例要求。
 
 ## 参考 RunningHub Workflow
 
@@ -97,6 +117,10 @@ RUNNINGHUB_COVER_TITLE_NODE_FIELD
 RUNNINGHUB_COVER_OUTPUT_NODE_ID
 RUNNINGHUB_COVER_OUTPUT_NODE_FIELD
 RUNNINGHUB_COVER_NODE_INFO_JSON
+RUNNINGHUB_COVER_RATIO_NODE_ID
+RUNNINGHUB_COVER_RATIO_NODE_FIELD
+RUNNINGHUB_COVER_RATIO_16_9_VALUE
+RUNNINGHUB_COVER_RATIO_9_16_VALUE
 RUNNINGHUB_COVER_UPLOAD_ENDPOINT
 RUNNINGHUB_COVER_CREATE_ENDPOINT
 RUNNINGHUB_COVER_STATUS_ENDPOINT
@@ -115,12 +139,27 @@ RUNNINGHUB_COVER_OUTPUT_NODE_ID=4
 RUNNINGHUB_COVER_OUTPUT_NODE_FIELD=images
 ```
 
-`RUNNINGHUB_COVER_NODE_INFO_JSON` 可用于描述复杂 workflow node mapping，支持 `{{image}}` 和 `{{title}}` 占位符。脱敏示例：
+如 workflow 有独立比例节点，可配置：
+
+```text
+RUNNINGHUB_COVER_RATIO_NODE_ID=<ratio node id>
+RUNNINGHUB_COVER_RATIO_NODE_FIELD=<ratio field>
+RUNNINGHUB_COVER_RATIO_16_9_VALUE=<workflow 16:9 value>
+RUNNINGHUB_COVER_RATIO_9_16_VALUE=<workflow 9:16 value>
+```
+
+如果未配置比例节点，provider 不阻塞任务，会把比例写入 `cover_prompt`，并在 report warnings 记录：
+
+```text
+RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY
+```
+
+`RUNNINGHUB_COVER_NODE_INFO_JSON` 可用于描述复杂 workflow node mapping，支持 `{{image}}`、`{{title}}`、`{{title_text}}`、`{{cover_prompt}}`、`{{aspect_ratio}}`、`{{ratio}}` 占位符。为兼容 prompt 节点，`{{title}}` 当前替换为完整 `cover_prompt`；裸标题使用 `{{title_text}}`。脱敏示例：
 
 ```json
 [
   {"nodeId": "13", "fieldName": "image", "fieldValue": "{{image}}"},
-  {"nodeId": "3", "fieldName": "prompt", "fieldValue": "{{title}}"}
+  {"nodeId": "3", "fieldName": "prompt", "fieldValue": "{{cover_prompt}}"}
 ]
 ```
 
@@ -170,6 +209,9 @@ RUNNINGHUB_COVER_OUTPUT_NODE_FIELD=images
 - `external_api_called=true`
 - `batch_index`
 - `theme_text`
+- `aspect_ratio`
+- `prompt_style_version`
+- `title_quality_version`
 - `min_required_images`
 - `uploaded_image_count`
 - `selected_cover_variant_id`
@@ -178,6 +220,11 @@ RUNNINGHUB_COVER_OUTPUT_NODE_FIELD=images
   - `title_id`
   - `title_text`
   - `title_source`
+  - `title_quality_passed`
+  - `title_quality_warnings`
+  - `cover_prompt`
+  - `prompt_source`
+  - `aspect_ratio`
   - `source_image_path`
   - `runninghub_task_id`
   - `runninghub_status`
