@@ -538,6 +538,9 @@ def generate_runninghub_cover_batch(
     output_dir: str | Path,
     batch_index: int,
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+    selected_video_title_id: str = "",
+    selected_video_title_text: str = "",
+    uploaded_image_count: int | None = None,
     client: Any | None = None,
 ) -> dict[str, Any]:
     output_path = Path(output_dir).expanduser().resolve()
@@ -554,10 +557,27 @@ def generate_runninghub_cover_batch(
 
     if len(selected_images) < MIN_REQUIRED_IMAGES:
         raise RunningHubCoverError("At least 3 uploaded images are required.")
-    if len(titles) < 3:
+    selected_title_text = str(selected_video_title_text or "").strip()
+    selected_title_id = str(selected_video_title_id or "").strip()
+    if selected_title_text:
+        selected_title_quality = validate_cover_title_quality(selected_title_text)
+        title_items = [
+            {
+                "title_id": selected_title_id or "title_1",
+                "text": selected_title_text,
+                "source": "local_static",
+                "title_quality_passed": selected_title_quality["passed"],
+                "title_quality_warnings": selected_title_quality["warnings"],
+            }
+            for _ in selected_images[:3]
+        ]
+    else:
+        title_items = titles[:3]
+
+    if len(title_items) < 3:
         raise RunningHubCoverError("At least 3 local title candidates are required.")
 
-    for index, (title, image) in enumerate(zip(titles[:3], selected_images[:3]), start=1):
+    for index, (title, image) in enumerate(zip(title_items, selected_images[:3]), start=1):
         variant_id = f"cover_{index}"
         local_cover_path = output_path / f"{variant_id}.png"
         task_id = ""
@@ -650,11 +670,21 @@ def generate_runninghub_cover_batch(
         "external_api_called": True,
         "batch_index": batch_index,
         "theme_text": theme_text,
+        "selected_video_title_id": selected_title_id or (
+            title_items[0].get("title_id") if title_items else ""
+        ),
+        "selected_video_title_text": selected_title_text or (
+            title_items[0].get("text") if title_items else ""
+        ),
         "aspect_ratio": normalized_aspect_ratio,
         "prompt_style_version": PROMPT_STYLE_VERSION,
         "title_quality_version": TITLE_QUALITY_VERSION,
         "min_required_images": MIN_REQUIRED_IMAGES,
-        "uploaded_image_count": len(selected_images),
+        "uploaded_image_count": (
+            int(uploaded_image_count)
+            if uploaded_image_count is not None
+            else len(selected_images)
+        ),
         "selected_cover_variant_id": selected_variant_id,
         "variants": variants,
         "warnings": warnings,

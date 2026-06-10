@@ -435,12 +435,14 @@ def safe_cover_upload_name(index: int, original_name: str) -> str:
     return f"{index:03d}_{safe_root[:40]}{ext}"
 
 
-def build_cover_title_batch(theme_text: str, batch_index: int) -> list[dict]:
-    candidates = build_high_quality_cover_titles(theme_text, batch_index=batch_index)
+def build_cover_title_batch(theme_text: str, batch_index: int, count: int = 6) -> list[dict]:
+    candidates = build_high_quality_cover_titles(
+        theme_text, batch_index=batch_index, count=count
+    )
     if not candidates:
         return []
     title_batch = []
-    for index, candidate in enumerate(candidates[:3], start=1):
+    for index, candidate in enumerate(candidates[:count], start=1):
         title_batch.append(
             {
                 **candidate,
@@ -452,39 +454,42 @@ def build_cover_title_batch(theme_text: str, batch_index: int) -> list[dict]:
     return title_batch
 
 
-def build_cover_prototype_video_script(theme_text: str, candidates: list[dict]) -> str:
-    script_seed_title = selected_cover_title_text(candidates, "title_1") or theme_text
-    project_config = {
-        "project_id": "webui_cover_prototype_script",
-        "project_name": script_seed_title or "餐饮宣传",
-        "user_request": theme_text or "餐饮宣传视频文案",
-        "selected_title": script_seed_title or "餐饮宣传",
-        "target_duration_seconds": 30,
-    }
-    mock_images = [
-        ImageFile(
-            name="01_intro.jpg",
-            path=Path(RESTAURANT_COVER_PROTOTYPE_ROOT) / "mock" / "01_intro.jpg",
-            suffix=".jpg",
-        ),
-        ImageFile(
-            name="02_dish_1.jpg",
-            path=Path(RESTAURANT_COVER_PROTOTYPE_ROOT) / "mock" / "02_dish_1.jpg",
-            suffix=".jpg",
-        ),
-        ImageFile(
-            name="03_dining.jpg",
-            path=Path(RESTAURANT_COVER_PROTOTYPE_ROOT) / "mock" / "03_dining.jpg",
-            suffix=".jpg",
-        ),
+def build_cover_prototype_video_script(
+    theme_text: str,
+    candidates: list[dict] | None = None,
+    target_duration_seconds: int = 30,
+    selected_title_text: str = "",
+) -> str:
+    del candidates
+    min_chars, max_chars = get_restaurant_script_char_range(target_duration_seconds)
+    theme = strip_script_noise(theme_text) or "餐厅宣传"
+    title = strip_script_noise(selected_title_text) or theme
+    sentences = [
+        f"{title}，把热辣香气和餐厅氛围直接带到镜头前。",
+        f"镜头先看到{theme}的招牌和环境，接着切到锅底、菜品和朋友围坐的热闹瞬间。",
+        "新鲜食材一上桌，蒸汽和香气立刻把食欲拉满。",
+        "适合下班小聚，也适合周末约上朋友慢慢吃。",
+        "从第一口到最后一筷，都有轻松、热闹、有烟火气的用餐体验。",
+        "如果想找一顿有氛围的餐厅短视频，这组画面会很适合。",
+        "整体节奏自然顺畅，能把菜品、环境和聚餐情绪一起讲清楚。",
+        "让人看完就想约朋友出门吃一顿。",
     ]
-    storyboard = build_mock_storyboard(project_config, mock_images)
-    lines = [
-        str(scene.narration or scene.mock_narration or "").strip()
-        for scene in storyboard.scenes
-        if str(scene.narration or scene.mock_narration or "").strip()
-    ]
-    return "\n".join(lines)
+
+    script = ""
+    index = 0
+    while count_cjk_chars(script) < min_chars and index < len(sentences) * 4:
+        sentence = sentences[index % len(sentences)]
+        candidate = _append_restaurant_sentence(script, sentence)
+        if count_cjk_chars(candidate) <= max_chars:
+            script = candidate
+        else:
+            break
+        index += 1
+
+    normalized, _status = normalize_restaurant_script_length(script, min_chars, max_chars)
+    if count_cjk_chars(normalized) < min_chars:
+        normalized = extend_restaurant_script_locally(normalized, min_chars, max_chars)
+    return trim_script_to_max_chars(normalized, max_chars)
 
 
 def selected_cover_title_text(candidates: list[dict], selected_title_id: str) -> str:
@@ -492,6 +497,49 @@ def selected_cover_title_text(candidates: list[dict], selected_title_id: str) ->
         if candidate.get("title_id") == selected_title_id:
             return str(candidate.get("text") or "")
     return str(candidates[0].get("text") or "") if candidates else ""
+
+
+def get_selected_cover_title_state() -> tuple[str, str]:
+    candidates = st.session_state.get("restaurant_cover_title_candidates") or []
+    selected_title_id = st.session_state.get("restaurant_cover_selected_title_id") or ""
+    if candidates and not selected_title_id:
+        selected_title_id = str(candidates[0].get("title_id") or "title_1")
+    selected_title_text = selected_cover_title_text(candidates, selected_title_id)
+    if selected_title_text:
+        st.session_state["restaurant_cover_selected_title_id"] = selected_title_id
+        st.session_state["restaurant_cover_selected_title_text"] = selected_title_text
+        st.session_state["selected_video_title_id"] = selected_title_id
+        st.session_state["selected_video_title_text"] = selected_title_text
+    return selected_title_id, selected_title_text
+
+
+def render_cover_title_candidates():
+    candidates = st.session_state.get("restaurant_cover_title_candidates") or []
+    if not candidates:
+        return
+
+    current_selected_id = (
+        st.session_state.get("restaurant_cover_selected_title_id")
+        or candidates[0].get("title_id")
+        or "title_1"
+    )
+    option_ids = [str(candidate.get("title_id") or f"title_{index}") for index, candidate in enumerate(candidates, start=1)]
+    if current_selected_id not in option_ids:
+        current_selected_id = option_ids[0]
+
+    selected_title_id = st.radio(
+        "选择视频标题",
+        options=option_ids,
+        index=option_ids.index(current_selected_id),
+        format_func=lambda title_id: selected_cover_title_text(candidates, title_id),
+        key="restaurant_cover_title_radio",
+    )
+    selected_title_text = selected_cover_title_text(candidates, selected_title_id)
+    st.session_state["restaurant_cover_selected_title_id"] = selected_title_id
+    st.session_state["restaurant_cover_selected_title_text"] = selected_title_text
+    st.session_state["selected_video_title_id"] = selected_title_id
+    st.session_state["selected_video_title_text"] = selected_title_text
+    st.caption("生成封面时将使用当前选中的视频标题。")
 
 
 def create_cover_prototype_run_dir() -> str:
@@ -621,6 +669,9 @@ def render_cover_batch_result(report: dict):
                 st.session_state["selected_cover_source_image_path"] = (
                     variant.get("source_image_path") or ""
                 )
+                st.session_state["selected_cover_aspect_ratio"] = (
+                    variant.get("aspect_ratio") or report.get("aspect_ratio") or ""
+                )
                 rerun = getattr(st, "rerun", getattr(st, "experimental_rerun", None))
                 if rerun:
                     rerun()
@@ -673,6 +724,10 @@ def render_restaurant_cover_prototype(
         if len(cover_image_files) < RESTAURANT_COVER_MIN_IMAGES:
             st.warning(f"至少上传 {RESTAURANT_COVER_MIN_IMAGES} 张图片后可生成封面。")
             return
+        selected_title_id, selected_title_text = get_selected_cover_title_state()
+        if not selected_title_text:
+            st.warning("请先生成视频标题并选择标题。")
+            return
 
         batch_index = int(st.session_state.get("restaurant_cover_batch_index", 0)) + 1
         st.session_state["restaurant_cover_batch_index"] = batch_index
@@ -680,8 +735,6 @@ def render_restaurant_cover_prototype(
         images_dir = os.path.join(run_dir, "images")
         saved_images = save_cover_prototype_uploads(cover_image_files, images_dir)
         selected_images = random.sample(saved_images, RESTAURANT_COVER_MIN_IMAGES)
-        title_batch = build_cover_title_batch(theme_text, batch_index)
-        st.session_state["restaurant_cover_title_batch"] = title_batch
         st.session_state["restaurant_cover_selected_source_images"] = selected_images
 
         loading_slot = st.empty()
@@ -691,11 +744,14 @@ def render_restaurant_cover_prototype(
             with st.spinner("正在生成 3 张封面，请稍候..."):
                 report = runninghub_cover.generate_runninghub_cover_batch(
                     theme_text=theme_text,
-                    titles=title_batch,
+                    titles=st.session_state.get("restaurant_cover_title_candidates") or [],
                     selected_images=selected_images,
                     output_dir=os.path.join(run_dir, "output"),
                     batch_index=batch_index,
                     aspect_ratio=aspect_ratio,
+                    selected_video_title_id=selected_title_id,
+                    selected_video_title_text=selected_title_text,
+                    uploaded_image_count=image_count,
                 )
         except runninghub_cover.RunningHubCoverConfigurationError as exc:
             st.error(str(exc))
@@ -724,6 +780,9 @@ def render_restaurant_cover_prototype(
                     st.session_state["selected_cover_source_image_path"] = first_variant.get(
                         "source_image_path"
                     )
+                    st.session_state["selected_cover_aspect_ratio"] = first_variant.get(
+                        "aspect_ratio"
+                    ) or report.get("aspect_ratio")
         finally:
             loading_slot.empty()
 
@@ -1886,34 +1945,88 @@ with left_panel:
         params.video_script_prompt = ""
         params.custom_system_prompt = ""
 
+        if st.button("生成视频标题", key="generate_video_titles"):
+            with st.spinner("正在本地生成视频标题..."):
+                try:
+                    title_batch_index = (
+                        int(st.session_state.get("restaurant_cover_title_batch_index", 0))
+                        + 1
+                    )
+                    title_batch = build_cover_title_batch(
+                        params.video_subject, title_batch_index, count=6
+                    )
+                except Exception as e:
+                    st.error(f"本地生成标题失败：{e}")
+                else:
+                    selected_title_id = (
+                        title_batch[0].get("title_id") if title_batch else ""
+                    )
+                    selected_title_text = selected_cover_title_text(
+                        title_batch, selected_title_id
+                    )
+                    st.session_state[
+                        "restaurant_cover_title_batch_index"
+                    ] = title_batch_index
+                    st.session_state["restaurant_cover_title_candidates"] = title_batch
+                    st.session_state[
+                        "restaurant_cover_selected_title_id"
+                    ] = selected_title_id
+                    st.session_state[
+                        "restaurant_cover_selected_title_text"
+                    ] = selected_title_text
+                    st.session_state["selected_video_title_id"] = selected_title_id
+                    st.session_state["selected_video_title_text"] = selected_title_text
+                    if not params.video_subject:
+                        st.info("未输入视频主题，已使用默认餐饮主题生成。")
+                    st.success("已本地生成 6 条视频标题。")
+        render_cover_title_candidates()
+
         min_script_chars, max_script_chars = get_restaurant_script_char_range(
             params.target_duration_seconds
         )
-        st.caption(f"AI 将生成约 {min_script_chars}–{max_script_chars} 个中文字符的旁白。")
+        st.caption(f"系统将生成约 {min_script_chars}–{max_script_chars} 个中文字符的旁白。")
 
         if st.button(
             tr("Generate Video Script and Keywords"), key="auto_generate_script"
         ):
             if getattr(params, "restaurant_mode", False):
-                with st.spinner("正在本地生成 prototype 视频文案..."):
+                with st.spinner("正在本地生成视频文案..."):
                     try:
                         cover_video_script = build_cover_prototype_video_script(
-                            params.video_subject, []
+                            theme_text=params.video_subject,
+                            target_duration_seconds=params.target_duration_seconds,
+                            selected_title_text=st.session_state.get(
+                                "restaurant_cover_selected_title_text", ""
+                            ),
                         )
                     except Exception as e:
                         st.error(f"本地生成文案失败：{e}")
                     else:
-                        st.session_state.pop("restaurant_cover_title_candidates", None)
-                        st.session_state.pop("restaurant_cover_selected_title_id", None)
+                        generated_text_chars = count_cjk_chars(cover_video_script)
+                        script_length_rule_passed = (
+                            min_script_chars <= generated_text_chars <= max_script_chars
+                        )
                         st.session_state["restaurant_cover_video_script"] = cover_video_script
                         st.session_state["video_script"] = cover_video_script
                         st.session_state["video_script_input"] = cover_video_script
+                        st.session_state["target_duration_seconds"] = (
+                            params.target_duration_seconds
+                        )
+                        st.session_state["target_min_text_chars"] = min_script_chars
+                        st.session_state["target_max_text_chars"] = max_script_chars
+                        st.session_state["generated_text_chars"] = generated_text_chars
+                        st.session_state[
+                            "script_length_rule_passed"
+                        ] = script_length_rule_passed
                         st.session_state["video_terms"] = build_local_restaurant_video_terms(
                             params.video_subject
                         )
                         if not params.video_subject:
                             st.info("未输入视频主题，已使用默认餐饮主题生成。")
-                        st.success("已本地生成 prototype 视频文案。")
+                        if script_length_rule_passed:
+                            st.success("已本地生成视频文案，并已按目标时长校准。")
+                        else:
+                            st.warning("视频文案已生成，但字数仍需人工复核。")
             else:
                 with st.spinner(tr("Generating Video Script and Keywords")):
                     script = llm.generate_script(

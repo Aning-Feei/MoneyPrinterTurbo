@@ -11,18 +11,19 @@
 
 ## WebUI 流程
 
-1. `文案设置` 中按钮显示为 `生成视频文案`，只生成本地 prototype 视频文案。
-2. WebUI 不展示标题候选列表，也不提供标题选择控件。
-3. 用户上传至少 3 张图片后，`生成封面` 按钮可点击。
-4. 点击 `生成封面` 后，后台本地生成 3 条 `local_static` 高吸引力标题。
-5. 系统随机选择 3 张用户上传图片。
-6. 系统提交 3 个 RunningHub 封面任务：
-   - `title_1 + cover_prompt + aspect_ratio + image_1`
-   - `title_2 + cover_prompt + aspect_ratio + image_2`
-   - `title_3 + cover_prompt + aspect_ratio + image_3`
-7. RunningHub 返回 3 张封面图后，WebUI 展示 3 张封面。
-8. 用户可选择其中 1 张封面，选中项会高亮并写入 session state。
-9. 成功生成后按钮文案变为 `重新生成封面`，再次点击会刷新标题批次、随机图片和 3 张封面。
+1. `文案设置` 中 `生成视频标题` 与 `生成视频文案` 分离。
+2. 点击 `生成视频标题` 后，本地生成 6 条视频标题，并允许用户选择 1 条作为封面主标题。
+3. 点击 `生成视频文案` 只生成 prototype 视频文案，不刷新标题列表，不覆盖已选标题。
+4. 用户上传至少 3 张图片后，`生成封面` 按钮可点击。
+5. 点击 `生成封面` 前必须已有选中标题；否则受控提示，不调用 RunningHub。
+6. 系统随机选择 3 张用户上传图片。
+7. 系统提交 3 个 RunningHub 封面任务：
+   - `selected_video_title_text + cover_prompt + aspect_ratio + image_1`
+   - `selected_video_title_text + cover_prompt + aspect_ratio + image_2`
+   - `selected_video_title_text + cover_prompt + aspect_ratio + image_3`
+8. RunningHub 返回 3 张封面图后，WebUI 展示 3 张封面。
+9. 用户可选择其中 1 张封面，选中项会高亮并写入 session state。
+10. 成功生成后按钮文案变为 `重新生成封面`，再次点击会复用当前选中标题、重新随机图片并生成 3 张封面。
 
 ## Provider 文件
 
@@ -209,6 +210,8 @@ RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY
 - `external_api_called=true`
 - `batch_index`
 - `theme_text`
+- `selected_video_title_id`
+- `selected_video_title_text`
 - `aspect_ratio`
 - `prompt_style_version`
 - `title_quality_version`
@@ -293,3 +296,13 @@ RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY
 - 3 个真实 task 均为 `succeeded`。
 - 真实图片已下载到 `/private/tmp`，观测尺寸为 `943 x 1668`。
 - report 不写入 API Key、Authorization、Bearer 或敏感 signed query。
+
+## WebUI 标题选择交互调整
+
+- WebUI 已拆分为 `生成视频标题` 与 `生成视频文案` 两个按钮。
+- 点击后本地生成 3 条 `local_static` 视频标题，用户选择其中 1 条。
+- RunningHub batch 不再将 3 条不同标题分别配给 3 个 task。
+- 当前 contract 为：3 个 task 使用同一条 `selected_video_title_text`，分别配 3 张随机上传图片。
+- 每个 task 的 prompt node 接收完整 `cover_prompt`，其中必须包含用户选择标题和视频比例。
+- `cover_batch_report.variants[*].title_text` 必须等于 `selected_video_title_text`。
+- 本轮测试只使用 fake RunningHub，不执行真实 RunningHub task。

@@ -2864,7 +2864,7 @@ restaurant_engine 最小兼容：
   - `RUNNINGHUB_COVER_RATIO_9_16_VALUE`
 - 未配置 ratio node 时，provider 将比例写入 prompt，并记录 `RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY`。
 - `cover_batch_report.json` 新增 prompt / ratio / title quality 字段。
-- WebUI 不展示标题候选列表，只展示封面编号、预览、选中状态、比例、渲染状态和 warning。
+- 本轮该历史交互已继续调整：WebUI 展示 6 条标题候选并允许用户选择 1 条。
 
 安全边界：
 - 未执行真实 RunningHub 调用。
@@ -2918,8 +2918,8 @@ restaurant_engine 最小兼容：
 收口内容：
 - 更新 `restaurant_docs/STAGE_4_ACCEPTANCE.md` 为最终验收版本。
 - 汇总 WebUI contract：
-  - 文案按钮只生成视频文案。
-  - 不展示标题候选。
+  - 文案按钮生成视频标题和视频文案。
+  - 展示 6 条标题候选并允许用户选择 1 条。
   - 生成封面按钮位于视频设置区。
   - 图片少于 3 张时受控提示 / 不可点击。
   - 成功后展示 3 张封面，用户选择 1 张，选中项高亮。
@@ -2936,3 +2936,78 @@ restaurant_engine 最小兼容：
 - 第 4 阶段封面生成模块可以进入 contract freeze。
 - 第 5 阶段可以基于 selected cover 和 `cover_batch_report` 做下一步设计。
 - 当前 WebUI 仍为验证 prototype，不是最终正式产品。
+
+## 第 4 阶段：WebUI 标题选择与 3 封面交互调整
+
+任务目标：
+- 根据用户反馈重新打开第 4 阶段小范围 WebUI 交互修正。
+- 文案设置中 `生成视频标题` 与 `生成视频文案` 拆分为两个独立按钮。
+- `生成视频标题` 位于目标时长说明下方，点击后本地生成 6 条视频标题。
+- 6 条标题展示在标题按钮下方，用户选择其中 1 条。
+- `生成视频文案` 只生成本地 prototype 视频文案，不刷新标题列表，不覆盖已选标题。
+- prototype 视频文案按目标时长中文字符范围生成。
+- 生成封面使用用户选择标题，不再用 3 条不同标题分别生成封面。
+
+实现边界：
+- 标题来源仍为 `restaurant_engine.cover_planner.build_high_quality_cover_titles`。
+- 标题 helper 支持 `count=6`，默认 3 条调用保持兼容。
+- 30/40/50/60 秒本地文案 smoke 字数分别落在目标范围内。
+- 3 个 RunningHub cover task 使用同一条 `selected_video_title_text`。
+- 3 个 task 分别使用随机选择的 3 张用户上传图片。
+- `cover_prompt` 本地 deterministic 生成，包含标题和视频比例。
+- 图片少于 3 张时生成封面按钮不可点击或受控提示。
+- 生成期间显示 `正在生成 3 张封面，请稍候...`。
+- 用户可选择 3 张封面中的 1 张，选中项高亮。
+
+安全边界：
+- 本轮默认 fake RunningHub 测试。
+- 不执行真实 RunningHub task。
+- 不调用 DeepSeek、LLM、TTS 或非 RunningHub 外部 API。
+- 不生成音频或视频。
+- 不进入第 5 阶段。
+
+## 第 4 阶段：WebUI/AppTest fake 验收收口
+
+任务目标：
+- 补齐 pytest 形式 parser 测试证据。
+- 在禁止安装依赖的前提下，记录当前 `.venv` 缺少 pytest 的环境限制。
+- 使用项目现有 unittest/fallback runner 补充测试证据。
+- 补测 50 秒文案字数规则，并保留 30/40/50/60 秒完整 smoke 摘要。
+
+测试记录：
+- 已执行 pytest 命令：
+  `PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/private/tmp/mpt-pycache .venv/bin/python -m pytest -p no:cacheprovider test/services/test_runninghub_cover_parser.py`
+- pytest 结果：失败，原因是当前 `.venv` 缺少 `pytest`，输出 `No module named pytest`。
+- 未安装 pytest，未安装任何依赖，未修改依赖文件。
+- 已执行 fallback：
+  `PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/private/tmp/mpt-pycache .venv/bin/python test/services/test_runninghub_cover_parser.py`
+- fallback 结果：`Ran 8 tests` / `OK`。
+- 已执行 unittest discover：
+  `PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/private/tmp/mpt-pycache .venv/bin/python -m unittest discover -s test/services -p "test_runninghub_cover_parser.py"`
+- discover 结果：`Ran 8 tests` / `OK`。
+
+AppTest fake smoke：
+- 30 秒：min `96` / max `108` / actual `106` / pass `true`
+- 40 秒：min `136` / max `148` / actual `148` / pass `true`
+- 50 秒：min `176` / max `188` / actual `177` / pass `true`
+- 60 秒：min `216` / max `228` / actual `225` / pass `true`
+- 生成视频文案不刷新标题列表：pass。
+- 生成视频文案不覆盖 `selected_video_title_text`：pass。
+- 已选标题仍可继续用于 fake RunningHub 封面生成：pass。
+- fake RunningHub 首次生成收到 3 个 task：pass。
+- 3 个 task 使用同一已选标题：pass。
+- 3 个 task 使用 3 张上传图片且去重：pass。
+- `cover_prompt` 包含标题：pass。
+- `cover_prompt` 包含 `9:16`：pass。
+- 生成 3 张封面并可选择：pass。
+
+安全边界：
+- 未调用真实 RunningHub。
+- 未调用 LLM / DeepSeek / TTS。
+- 未生成音频或视频。
+- 未进入第 5 阶段。
+
+结论：
+- pytest 门禁因测试环境缺少 pytest 不可执行，不按功能失败处理。
+- parser fallback、unittest discover、30/40/50/60 秒文案 smoke、fake RunningHub 3 封面 smoke 均通过。
+- 第 4 阶段本轮 WebUI 标题/文案/封面 fake 验收通过，可提交收口。

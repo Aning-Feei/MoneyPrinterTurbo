@@ -217,3 +217,15 @@ FONT_FALLBACK_USED
 - 已使用历史 task 恢复下载 3 张真实封面到 `/private/tmp`，观测尺寸为 `943 x 1668`。
 - 第 5 阶段可以消费 `cover_batch_report` 和 WebUI selected cover 信息。
 - 第 5 阶段不得假设 `cover_image.png`、`cover_*.png` 或 RunningHub 真实图片尺寸固定为 `1080 x 1920`。
+
+## WebUI 标题选择交互补充
+
+- 第 4 阶段重新打开一小段进行 WebUI 封面交互修正。
+- `生成视频标题` 和 `生成视频文案` 已拆成两个独立按钮。
+- 点击 `生成视频标题` 后本地生成 6 条视频标题，用户选择其中 1 条。
+- 点击 `生成视频文案` 只生成 prototype 视频文案，不刷新标题列表，不覆盖已选标题。
+- prototype 视频文案按目标时长控制中文字符数。
+- 用户从 3 条标题中选择 1 条作为封面主标题。
+- RunningHub batch 的 3 个封面 task 使用同一条用户选择标题，并分别使用 3 张随机上传图片。
+- `cover_prompt` 必须包含用户选择标题和视频比例。
+- 本轮不调用真实 RunningHub，不生成音频或视频，不进入第 5 阶段。

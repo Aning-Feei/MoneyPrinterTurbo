@@ -46,10 +46,13 @@
 
 ## C. WebUI Contract
 
-- 文案设置区域的 AI 视频文案按钮只生成视频文案。
-- WebUI 不展示标题候选。
-- WebUI 不提供标题选择 UI。
-- 标题只在点击 `生成封面` / `重新生成封面` 时后台生成。
+- 文案设置区域提供独立 `生成视频标题` 按钮。
+- 点击 `生成视频标题` 后本地生成 6 条视频标题。
+- WebUI 展示 6 条标题候选，用户选择其中 1 条。
+- 文案设置区域提供独立 `生成视频文案` 按钮。
+- 点击 `生成视频文案` 只生成 prototype 视频文案，不刷新标题，不覆盖已选标题。
+- prototype 视频文案按目标时长中文字符范围生成。
+- 生成封面使用用户选择标题。
 - 图片数量小于 3 张时，生成封面按钮不可点击或显示受控提示。
 - 图片数量达到 3 张后，生成封面按钮可点击。
 - 生成封面按钮位于中间列 `视频设置` 区域。
@@ -58,7 +61,7 @@
 - 成功后展示 3 张封面。
 - 用户可选择 1 张封面。
 - 选中封面有高亮 / 描边状态。
-- 重新生成会刷新 batch，包括标题批次、随机图片和 3 张封面。
+- 重新生成封面会复用当前选中标题，重新随机图片并生成 3 张封面。
 
 WebUI 选择状态写入 session state：
 
@@ -119,8 +122,8 @@ WebUI 选择状态写入 session state：
 
 ## E. Title Contract
 
-- 标题后台生成。
-- WebUI 不展示标题候选。
+- 标题在文案按钮点击时本地生成并展示。
+- WebUI 允许用户从 3 条标题中选择 1 条。
 - 标题 provider 为 `local_static`。
 - 每批 3 条标题。
 - `batch_index` 可刷新标题批次。
@@ -296,3 +299,52 @@ WebUI 选择状态写入 session state：
 - 不默认调用 DeepSeek / LLM / TTS。
 - 不把 WebUI prototype 当最终产品。
 - 使用第 4 阶段冻结的 `cover_batch_report` / selected cover 字段作为输入 contract。
+
+## L. WebUI 标题选择交互修正
+
+第 4 阶段根据用户反馈重新打开一小段，原 `WebUI 不展示标题候选` 的交互已被替换为：
+
+- WebUI 分别显示 `生成视频标题` 与 `生成视频文案`。
+- 点击 `生成视频标题` 后本地生成 6 条 `local_static` 视频标题。
+- 6 条标题展示在按钮下方，用户选择 1 条作为封面主标题。
+- 点击 `生成视频文案` 只生成 prototype 视频文案，不刷新标题列表，不覆盖已选标题。
+- 生成封面前必须已有选中标题；否则受控提示，不调用 RunningHub。
+- RunningHub batch 3 个 task 使用同一条用户选择标题。
+- 3 个 task 分别使用随机选择的 3 张上传图片。
+- `cover_prompt` 必须包含用户选择标题和视频比例。
+- `cover_batch_report.selected_video_title_text` 记录用户选择标题。
+- `cover_batch_report.variants[*].title_text` 应与用户选择标题一致。
+- 本轮只做第 4 阶段 WebUI prototype 交互修正，不进入第 5 阶段。
+- 本轮默认 fake RunningHub 验证，不执行真实 RunningHub、DeepSeek、LLM、TTS、音频或视频生成。
+
+## M. WebUI/AppTest fake 验收收口记录
+
+2026-06-10 补齐第 4 阶段 WebUI 标题/文案/封面 fake 验收记录：
+
+- pytest 命令已执行：
+  `PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/private/tmp/mpt-pycache .venv/bin/python -m pytest -p no:cacheprovider test/services/test_runninghub_cover_parser.py`
+- pytest 不可用原因：当前 `.venv` 缺少 `pytest`，输出 `No module named pytest`。
+- 未安装 pytest，未安装任何依赖，未修改依赖文件。
+- fallback 测试已执行：
+  `PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/private/tmp/mpt-pycache .venv/bin/python test/services/test_runninghub_cover_parser.py`
+- fallback 结果：`Ran 8 tests` / `OK`。
+- unittest discover 已执行：
+  `PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/private/tmp/mpt-pycache .venv/bin/python -m unittest discover -s test/services -p "test_runninghub_cover_parser.py"`
+- discover 结果：`Ran 8 tests` / `OK`。
+- 文案字数 AppTest smoke：
+  - 30 秒：min `96` / max `108` / actual `106` / pass `true`
+  - 40 秒：min `136` / max `148` / actual `148` / pass `true`
+  - 50 秒：min `176` / max `188` / actual `177` / pass `true`
+  - 60 秒：min `216` / max `228` / actual `225` / pass `true`
+- 生成视频文案不刷新标题列表：pass。
+- 生成视频文案不覆盖 `selected_video_title_text`：pass。
+- fake RunningHub 3 封面验收：
+  - 首次生成收到 3 个 fake task：pass。
+  - 3 个 task 使用同一已选标题 `title_4` / `热辣这一锅真香`：pass。
+  - 3 个 task 使用 3 张上传图片且 image ref 去重：pass。
+  - `cover_prompt` 包含用户选择标题：pass。
+  - `cover_prompt` 包含 `9:16`：pass。
+  - 生成 3 张封面并可选择，选中状态高亮：pass。
+- 未调用真实 RunningHub / LLM / DeepSeek / TTS / 视频生成。
+- 第 4 阶段本轮 WebUI 标题/文案/封面 fake 验收通过。
+- 当前仍停留第 4 阶段，未进入第 5 阶段。

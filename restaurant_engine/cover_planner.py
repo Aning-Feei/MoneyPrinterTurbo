@@ -142,11 +142,13 @@ def build_title_candidates(theme_text: str) -> list[TitleCandidate]:
 
 
 def build_high_quality_cover_titles(
-    theme_text: str, batch_index: int = 1
+    theme_text: str, batch_index: int = 1, count: int = 3
 ) -> list[dict[str, Any]]:
-    """Build 3 local_static cover titles with quality metadata."""
+    """Build local_static cover titles with quality metadata."""
 
-    title_texts = build_high_quality_cover_title_texts(theme_text, batch_index)
+    title_texts = build_high_quality_cover_title_texts(
+        theme_text, batch_index=batch_index, count=count
+    )
     titles: list[dict[str, Any]] = []
     for index, text in enumerate(title_texts, start=1):
         quality = validate_cover_title_quality(text)
@@ -165,22 +167,32 @@ def build_high_quality_cover_titles(
 
 
 def build_high_quality_cover_title_texts(
-    theme_text: str, batch_index: int = 1
-) -> tuple[str, str, str]:
+    theme_text: str, batch_index: int = 1, count: int = 3
+) -> tuple[str, ...]:
+    target_count = max(1, int(count or 3))
     groups = build_cover_title_groups(theme_text)
     offset = max(0, int(batch_index or 1) - 1)
     selected: list[str] = []
-    for group in groups:
-        selected.append(group[offset % len(group)])
+    max_group_len = max(len(group) for group in groups)
+    for round_index in range(max_group_len):
+        for group in groups:
+            selected.append(group[(offset + round_index) % len(group)])
+            if len(dict.fromkeys(selected)) >= target_count:
+                break
+        if len(dict.fromkeys(selected)) >= target_count:
+            break
 
-    if len(set(selected)) < 3:
-        fallback_groups = build_cover_title_groups("")
+    fallback_groups = build_cover_title_groups("")
+    fallback_max_group_len = max(len(group) for group in fallback_groups)
+    for round_index in range(fallback_max_group_len):
         for group in fallback_groups:
-            candidate = group[offset % len(group)]
+            candidate = group[(offset + round_index) % len(group)]
             if candidate not in selected:
                 selected.append(candidate)
-            if len(set(selected)) >= 3:
+            if len(dict.fromkeys(selected)) >= target_count:
                 break
+        if len(dict.fromkeys(selected)) >= target_count:
+            break
 
     cleaned: list[str] = []
     for title in selected:
@@ -188,18 +200,18 @@ def build_high_quality_cover_title_texts(
         quality = validate_cover_title_quality(candidate)
         if quality["passed"] and candidate not in cleaned:
             cleaned.append(candidate)
-        if len(cleaned) == 3:
+        if len(cleaned) == target_count:
             break
 
-    if len(cleaned) < 3:
+    if len(cleaned) < target_count:
         for title in DEFAULT_TITLES:
             candidate = sanitize_cover_title(title)
             if validate_cover_title_quality(candidate)["passed"] and candidate not in cleaned:
                 cleaned.append(candidate)
-            if len(cleaned) == 3:
+            if len(cleaned) == target_count:
                 break
 
-    return tuple(cleaned[:3])  # type: ignore[return-value]
+    return tuple(cleaned[:target_count])
 
 
 def build_cover_title_groups(theme_text: str) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
@@ -338,7 +350,7 @@ def build_cover_title_groups(theme_text: str) -> tuple[tuple[str, ...], tuple[st
 
 
 def build_short_video_cover_titles(theme_text: str) -> tuple[str, str, str]:
-    return build_high_quality_cover_title_texts(theme_text, batch_index=1)
+    return build_high_quality_cover_title_texts(theme_text, batch_index=1, count=3)  # type: ignore[return-value]
 
 
 def validate_cover_title_quality(title_text: str) -> dict[str, Any]:

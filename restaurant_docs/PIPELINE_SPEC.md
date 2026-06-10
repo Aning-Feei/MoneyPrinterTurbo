@@ -679,26 +679,30 @@ TTS contract 当前规则：
 当前 WebUI 入口执行路径：
 
 1. 用户输入视频主题，内部写入 `theme_text`。
-2. 用户点击 `生成视频文案`。
-3. WebUI 本地生成 prototype 视频文案，不调用 DeepSeek / LLM。
-4. WebUI 不展示标题候选列表，也不提供标题选择控件。
-5. 用户在中间列 `视频设置` 区域上传至少 3 张图片。
-6. 用户点击 `生成封面`。
-7. WebUI 后台本地生成 3 条 `local_static` 标题。
-8. WebUI 随机选择 3 张上传图片。
-9. WebUI 调用 `restaurant_engine.runninghub_cover.generate_runninghub_cover_batch`。
-10. RunningHub provider 提交 3 个封面任务。
-11. RunningHub 返回 3 张封面后，WebUI 展示 3 张封面并允许用户选择其中 1 张。
+2. 用户点击 `生成视频标题`。
+3. WebUI 本地生成 6 条视频标题，不调用 DeepSeek / LLM。
+4. WebUI 展示标题候选，用户选择其中 1 条作为封面主标题。
+5. 用户点击 `生成视频文案`。
+6. WebUI 本地生成 prototype 视频文案，并按目标时长中文字符范围校准；该动作不刷新标题、不覆盖已选标题。
+7. 用户在中间列 `视频设置` 区域上传至少 3 张图片。
+8. 用户点击 `生成封面`。
+9. WebUI 读取用户已选择的视频标题。
+10. WebUI 随机选择 3 张上传图片。
+11. WebUI 调用 `restaurant_engine.runninghub_cover.generate_runninghub_cover_batch`。
+12. RunningHub provider 提交 3 个封面任务。
+13. RunningHub 返回 3 张封面后，WebUI 展示 3 张封面并允许用户选择其中 1 张。
 
 最新 WebUI 交互修正：
 
-- `文案设置` 中主按钮显示为 `生成视频文案`，只生成本地 prototype 视频文案。
-- WebUI 不展示标题候选列表，也不提供标题选择控件。
-- 标题改为点击 `生成封面` / `重新生成封面` 时后台生成，每批 3 条 `local_static` 标题。
+- `文案设置` 中 `生成视频标题` 与 `生成视频文案` 分离。
+- `生成视频标题` 本地生成 6 条标题，WebUI 展示 6 条候选，用户选择其中 1 条。
+- `生成视频文案` 只生成 prototype 视频文案，不刷新标题，不覆盖已选标题。
+- prototype 视频文案按目标时长中文字符范围生成。
+- 点击 `生成封面` / `重新生成封面` 时使用用户选择的同一条标题。
 - 上传图片少于 3 张时，`生成封面` 按钮 disabled，并显示至少上传 3 张图片的提示。
-- 上传图片达到 3 张后，WebUI 随机选择 3 张用户上传图片，和 3 条后台标题一一配对，提交 RunningHub batch。
+- 上传图片达到 3 张后，WebUI 随机选择 3 张用户上传图片，并用同一条用户选择标题提交 RunningHub batch。
 - `生成封面` 按钮位于中间列 `视频设置` 区域的 `当前本地图片数量` 下方。
-- 成功生成后按钮文案变为 `重新生成封面`，再次点击会刷新标题批次、随机图片和 3 张封面。
+- 成功生成后按钮文案变为 `重新生成封面`，再次点击会复用当前选中标题、重新随机图片并生成 3 张封面。
 - RunningHub batch 结果写入仓库外临时目录的 `cover_batch_report.json`，不写入 `storage/` 或源码目录。
 - RunningHub workflow API JSON 已做本地只读校准：
   - 参考 workflow id：`2064397787445424129`
@@ -757,3 +761,13 @@ RunningHub 封面 prompt 和比例 contract：
 - 真实输出观测尺寸为 `943 x 1668`，第 5 阶段不得假设 RunningHub 输出尺寸固定。
 - 第 5 阶段可依赖 `cover_batch_report.variants[*].title_text`、`cover_prompt`、`aspect_ratio`、`local_cover_image_path`、`render_status` 和 `selected_cover_variant_id`。
 - 第 5 阶段仍不得默认调用 DeepSeek、LLM、TTS、图生视频或视频生成。
+
+第 4 阶段 WebUI 交互修正：
+
+- WebUI 已拆分为 `生成视频标题` 与 `生成视频文案` 两个按钮。
+- 点击后同时生成 3 条本地 `local_static` 标题和视频文案。
+- 用户选择 1 条标题后，生成封面使用 `selected_video_title_text`。
+- RunningHub batch 3 个 task 使用同一条用户选择标题 + 3 张随机上传图片。
+- `cover_batch_report` 新增/保留 `selected_video_title_id` 和 `selected_video_title_text`。
+- `variants[*].title_text` 应与 `selected_video_title_text` 一致。
+- 本轮默认 fake RunningHub 验证，不调用真实 RunningHub、DeepSeek、LLM、TTS 或视频生成。

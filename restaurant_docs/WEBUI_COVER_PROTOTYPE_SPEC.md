@@ -87,19 +87,23 @@ RunningHub 接入时不再把裸标题直接提交给 prompt 节点，而是本�
 
 ## UI 行为
 
-- 主按钮位于现有左侧 `文案设置` 区域，显示为 `生成视频文案`。
-- 点击主按钮后，只本地生成 prototype 视频文案，并写入现有 `视频文案` 输入框。
-- WebUI 不展示标题候选列表，也不提供标题选择控件。
-- 标题只在点击 `生成封面` / `重新生成封面` 时后台生成，每批 3 条，`source=local_static`。
+- `生成视频标题` 按钮位于左侧 `文案设置` 区域的目标时长说明下方。
+- 点击 `生成视频标题` 后，本地生成 6 条 `local_static` 视频标题。
+- 6 条标题展示在标题按钮下方，用户必须选择其中 1 条，默认选中 `title_1`。
+- `生成视频文案` 按钮只生成 prototype 视频文案，并写入现有 `视频文案` 输入框。
+- `生成视频文案` 不刷新标题列表，不覆盖已选标题。
+- prototype 视频文案按目标时长中文字符范围生成。
+- 标题选择写入 session state：`selected_video_title_id` / `selected_video_title_text`。
 - 封面生成读取现有 `视频比例` 设置，只支持 `9:16` 和 `16:9`。
 - 封面验证入口位于中间列 `视频设置` 区域的 `当前本地图片数量` 下方。
 - 上传图片少于 3 张时，WebUI 提示 `至少上传 3 张图片后可生成封面。`，按钮不可点击。
 - 上传图片达到 3 张后，按钮显示 `生成封面`；成功生成后显示 `重新生成封面`。
-- 点击生成封面后，WebUI 随机选择 3 张用户上传图片，与 3 条后台标题一一配对，提交 3 个 RunningHub 任务。
+- 点击生成封面前必须已经选择视频标题；未选择时受控提示，不调用 RunningHub。
+- 点击生成封面后，WebUI 随机选择 3 张用户上传图片，并用同一条用户选择标题提交 3 个 RunningHub 任务。
 - 生成期间封面结果区域显示 `正在生成 3 张封面，请稍候...`。
 - 成功后展示 3 张 RunningHub 封面图，用户可选择其中 1 张，选中项有高亮样式。
-- 结果区展示封面编号、预览图、选中状态、比例、渲染状态和必要 warning，不展示标题候选选择列表。
-- 选择结果写入 session state：`selected_cover_variant_id` / `selected_cover_image_path` / `selected_cover_title_text` / `selected_cover_source_image_path`。
+- 结果区展示封面编号、预览图、选中状态、比例、渲染状态和必要 warning。
+- 选择结果写入 session state：`selected_cover_variant_id` / `selected_cover_image_path` / `selected_cover_title_text` / `selected_cover_source_image_path` / `selected_cover_aspect_ratio`。
 
 ## 安全边界
 
@@ -137,9 +141,10 @@ RunningHub 接入时不再把裸标题直接提交给 prompt 节点，而是本�
 
 ## 第 4 阶段最终验收状态
 
-- WebUI 文案按钮只生成视频文案，不生成封面标题。
-- WebUI 不展示标题候选，不提供标题选择 UI。
-- 点击 `生成封面` / `重新生成封面` 时，后台本地生成 3 条 `local_static` 标题。
+- WebUI 分别显示 `生成视频标题` 和 `生成视频文案`。
+- 点击标题按钮时生成 6 条视频标题；点击文案按钮时只生成视频文案。
+- WebUI 展示 6 条标题并允许用户选择 1 条作为封面主标题。
+- 点击 `生成封面` / `重新生成封面` 时，3 个 RunningHub task 使用同一条用户选择标题。
 - `生成封面` 位于中间列 `视频设置` 区域的 `当前本地图片数量：X 张` 下方。
 - 图片数量小于 3 张时按钮不可点击或显示受控提示。
 - 图片数量达到 3 张后可提交 RunningHub batch。

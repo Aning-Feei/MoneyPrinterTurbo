@@ -2129,7 +2129,7 @@ project.json
 - `cover_batch_report.json` 新增记录：
   - 顶层 `aspect_ratio`、`prompt_style_version`、`title_quality_version`。
   - variant 级 `title_quality_passed`、`title_quality_warnings`、`cover_prompt`、`prompt_source`、`aspect_ratio`。
-- WebUI 仍不展示标题候选列表或标题选择 UI，只展示封面编号、预览、选中状态、比例、渲染状态和 warning。
+- 本轮该历史交互已继续调整：WebUI 展示 6 条标题候选并允许用户选择 1 条作为封面主标题。
 - 本轮不执行真实 RunningHub smoke，不调用 DeepSeek、LLM、TTS，不生成音频或视频。
 
 ## 第 4 阶段：RunningHub 真实输出解析修复
@@ -2163,3 +2163,37 @@ project.json
 - 本轮不新增 RunningHub task，不调用 DeepSeek / LLM / TTS，不生成音频或视频。
 - 第 5 阶段可以基于 `cover_batch_report`、selected cover 信息、WebUI 视频文案、上传图片列表和视频比例继续设计。
 - 第 5 阶段不得假设 WebUI 是最终产品，也不得假设 RunningHub 输出尺寸固定。
+
+## 第 4 阶段：WebUI 标题选择交互修正
+
+- 用户确认第 4 阶段需要重新打开一小段，调整封面生成交互。
+- 文案设置中 `生成视频标题` 与 `生成视频文案` 已拆分。
+- `生成视频标题` 位于目标时长说明下方，点击后本地生成 6 条视频标题，不调用 DeepSeek / LLM。
+- WebUI 在标题按钮下方展示 6 条标题，用户选择 1 条作为封面主标题。
+- `生成视频文案` 只生成本地 prototype 视频文案，不刷新标题列表，不覆盖已选标题。
+- 本地 prototype 视频文案按目标时长中文字符范围生成，当前 30/40/50/60 秒 smoke 均通过字数规则。
+- 生成封面时使用同一条用户选择标题，配合 3 张随机上传图片提交 3 个 RunningHub 封面 task。
+- `cover_prompt` 包含用户选择标题和视频比例。
+- 图片少于 3 张时生成封面入口不可点击或受控提示。
+- 本轮默认使用 fake RunningHub 测试，不执行真实 RunningHub task。
+- 当前仍停留第 4 阶段，不进入第 5 阶段，不生成音频或视频。
+
+## 第 4 阶段：WebUI/AppTest fake 验收收口
+
+- 当前阶段仍为第 4 阶段封面生成模块，未进入第 5 阶段。
+- pytest 命令已执行，但当前 `.venv` 缺少 `pytest`，输出 `No module named pytest`。
+- 根据本轮规则，未安装 pytest，未安装任何依赖，未修改依赖文件。
+- parser fallback 已通过：
+  - 直接执行 `test/services/test_runninghub_cover_parser.py`：`Ran 8 tests` / `OK`。
+  - `unittest discover`：`Ran 8 tests` / `OK`。
+- AppTest fake smoke 已通过：
+  - 30 秒：min `96` / max `108` / actual `106` / pass `true`
+  - 40 秒：min `136` / max `148` / actual `148` / pass `true`
+  - 50 秒：min `176` / max `188` / actual `177` / pass `true`
+  - 60 秒：min `216` / max `228` / actual `225` / pass `true`
+- 生成视频文案不刷新标题列表，不覆盖 `selected_video_title_text`。
+- fake RunningHub 首次生成 3 个 task，均使用同一已选标题、3 张上传图片且 image ref 去重。
+- `cover_prompt` 包含用户选择标题和 `9:16`。
+- WebUI 展示 3 张封面，用户可选择其中 1 张，选中状态高亮。
+- 未调用真实 RunningHub / LLM / DeepSeek / TTS，未生成音频或视频。
+- 第 4 阶段本轮交互修正已通过 fake 验收，可提交收口；不得写成第 5 阶段已开始。
