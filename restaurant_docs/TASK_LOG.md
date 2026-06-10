@@ -3011,3 +3011,43 @@ AppTest fake smoke：
 - pytest 门禁因测试环境缺少 pytest 不可执行，不按功能失败处理。
 - parser fallback、unittest discover、30/40/50/60 秒文案 smoke、fake RunningHub 3 封面 smoke 均通过。
 - 第 4 阶段本轮 WebUI 标题/文案/封面 fake 验收通过，可提交收口。
+
+## 第 4 阶段：生成视频标题 count 参数阻塞修复
+
+任务背景：
+- 用户浏览器实测点击 `生成视频标题` 报错：
+  `build_high_quality_cover_titles() got an unexpected keyword argument 'count'`
+- 本轮仍属于第 4 阶段 WebUI 交互修正，不进入第 5 阶段。
+
+修复方式：
+- 调整 `restaurant_engine/cover_planner.py`：
+  - `build_high_quality_cover_titles(theme_text, batch_index=1, count=6)` 支持 `count`。
+  - 默认返回 6 个本地 deterministic 标题文本。
+  - 返回值收敛为 `list[str]`。
+  - 不调用 DeepSeek / LLM。
+- 调整 `webui/Main.py`：
+  - `build_cover_title_batch` 调用 helper 后，把标题文本包装成 WebUI 需要的候选 dict。
+  - 保持 `生成视频标题` 按钮传 `count=6`。
+  - `生成视频文案` 不重新生成标题，不刷新标题列表，不覆盖已选标题。
+- 同步 `test/services/test_runninghub_cover_parser.py` 中标题 helper 断言。
+
+验证结果：
+- `count=6` 本地 smoke：通过，返回 6 个非空字符串，去重后数量仍为 6。
+- 浏览器点击 `生成视频标题`：通过，不再出现 count 参数错误。
+- 浏览器展示 6 个标题并可选择：通过。
+- 浏览器点击 `生成视频文案`：通过，标题列表不刷新，已选标题不覆盖。
+- 30 秒：min `96` / max `108` / actual `106` / pass `true`
+- 40 秒：min `136` / max `148` / actual `148` / pass `true`
+- 50 秒：min `176` / max `188` / actual `177` / pass `true`
+- 60 秒：min `216` / max `228` / actual `225` / pass `true`
+- fake RunningHub 3 封面：通过。
+- 3 个 fake task 使用同一已选标题：通过。
+- `cover_prompt` 包含已选标题和 `9:16`：通过。
+- 页面展示 3 张封面并可选择：AppTest fake smoke 通过。
+
+安全边界：
+- 未调用真实 RunningHub。
+- 未调用 LLM / DeepSeek / TTS。
+- 未生成音频或视频。
+- 未安装依赖，未修改依赖文件。
+- 未进入第 5 阶段。

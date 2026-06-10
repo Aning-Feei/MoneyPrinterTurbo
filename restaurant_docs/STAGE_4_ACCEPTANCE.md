@@ -348,3 +348,28 @@ WebUI 选择状态写入 session state：
 - 未调用真实 RunningHub / LLM / DeepSeek / TTS / 视频生成。
 - 第 4 阶段本轮 WebUI 标题/文案/封面 fake 验收通过。
 - 当前仍停留第 4 阶段，未进入第 5 阶段。
+
+## N. 生成视频标题 count 参数阻塞修复
+
+2026-06-10 发现 WebUI 点击 `生成视频标题` 时出现阻塞错误：
+
+- `build_high_quality_cover_titles() got an unexpected keyword argument 'count'`
+
+修复记录：
+
+- 将 `restaurant_engine.cover_planner.build_high_quality_cover_titles` 的契约收敛为本地 deterministic 标题文本生成 helper。
+- helper 支持 `count: int = 6`，旧调用不传 `count` 时默认返回 6 条标题文本。
+- WebUI `build_cover_title_batch` 继续负责把标题文本转换为带 `title_id`、`source`、`batch_index`、质量检查字段的候选项。
+- `生成视频文案` 不调用 `build_high_quality_cover_titles`，不刷新标题列表，不覆盖 `selected_video_title_text`。
+
+验收结果：
+
+- 本地 `count=6` smoke：返回 6 个非空字符串，去重后仍为 6 个。
+- 浏览器点击 `生成视频标题`：通过，不再出现 count 参数错误。
+- 浏览器展示 6 个标题并位于按钮下方：通过。
+- 浏览器选择标题后点击 `生成视频文案`：标题列表不刷新，已选标题不覆盖。
+- 30 / 40 / 50 / 60 秒文案规则：AppTest smoke 通过。
+- fake RunningHub 3 封面：AppTest smoke 通过，3 个 task 使用同一已选标题，`cover_prompt` 包含标题和 `9:16`，生成 3 张封面并可选择。
+- 未调用真实 RunningHub / LLM / DeepSeek / TTS / 视频生成。
+- 未安装依赖，未修改依赖文件。
+- 当前仍停留第 4 阶段，未进入第 5 阶段。

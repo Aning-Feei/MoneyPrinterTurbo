@@ -142,28 +142,15 @@ def build_title_candidates(theme_text: str) -> list[TitleCandidate]:
 
 
 def build_high_quality_cover_titles(
-    theme_text: str, batch_index: int = 1, count: int = 3
-) -> list[dict[str, Any]]:
-    """Build local_static cover titles with quality metadata."""
+    theme_text: str, batch_index: int = 1, count: int = 6
+) -> list[str]:
+    """Build deterministic local_static cover title text candidates."""
 
-    title_texts = build_high_quality_cover_title_texts(
-        theme_text, batch_index=batch_index, count=count
-    )
-    titles: list[dict[str, Any]] = []
-    for index, text in enumerate(title_texts, start=1):
-        quality = validate_cover_title_quality(text)
-        titles.append(
-            {
-                "title_id": f"title_{index}",
-                "text": text,
-                "source": TITLE_PROVIDER,
-                "batch_index": batch_index,
-                "title_quality_passed": quality["passed"],
-                "title_quality_warnings": quality["warnings"],
-                "title_quality_version": TITLE_QUALITY_VERSION,
-            }
+    return list(
+        build_high_quality_cover_title_texts(
+            theme_text, batch_index=batch_index, count=count
         )
-    return titles
+    )
 
 
 def build_high_quality_cover_title_texts(

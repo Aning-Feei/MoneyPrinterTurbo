@@ -22,19 +22,12 @@ class TestRunningHubCoverParser(unittest.TestCase):
         )
 
         self.assertEqual(len(titles), 6)
-        self.assertEqual([title["title_id"] for title in titles], [
-            "title_1",
-            "title_2",
-            "title_3",
-            "title_4",
-            "title_5",
-            "title_6",
-        ])
+        self.assertEqual(len(set(titles)), 6)
         weak_terms = ("值得一试", "聚餐首选", "发现这家", "必吃", "宝藏", "绝了")
         for title in titles:
-            self.assertEqual(title["source"], "local_static")
-            self.assertTrue(title["title_quality_passed"])
-            self.assertFalse(any(term in title["text"] for term in weak_terms))
+            self.assertIsInstance(title, str)
+            self.assertTrue(title.strip())
+            self.assertFalse(any(term in title for term in weak_terms))
 
     def test_runninghub_status_string_data_is_supported(self):
         payload = {"code": 0, "msg": "success", "data": "SUCCESS"}

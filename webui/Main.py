@@ -30,7 +30,10 @@ from app.models.schema import (
 from app.services import llm, voice
 from app.services import task as tm
 from app.utils import utils
-from restaurant_engine.cover_planner import build_high_quality_cover_titles
+from restaurant_engine.cover_planner import (
+    build_high_quality_cover_titles,
+    validate_cover_title_quality,
+)
 from restaurant_engine.models import ImageFile
 from restaurant_engine import runninghub_cover
 from restaurant_engine.storyboard_planner import build_mock_storyboard
@@ -436,19 +439,23 @@ def safe_cover_upload_name(index: int, original_name: str) -> str:
 
 
 def build_cover_title_batch(theme_text: str, batch_index: int, count: int = 6) -> list[dict]:
-    candidates = build_high_quality_cover_titles(
+    title_texts = build_high_quality_cover_titles(
         theme_text, batch_index=batch_index, count=count
     )
-    if not candidates:
+    if not title_texts:
         return []
     title_batch = []
-    for index, candidate in enumerate(candidates[:count], start=1):
+    for index, title_text in enumerate(title_texts[:count], start=1):
+        quality = validate_cover_title_quality(title_text)
         title_batch.append(
             {
-                **candidate,
                 "title_id": f"title_{index}",
-                "source": candidate.get("source") or "local_static",
+                "text": title_text,
+                "source": "local_static",
                 "batch_index": batch_index,
+                "title_quality_passed": quality["passed"],
+                "title_quality_warnings": quality["warnings"],
+                "title_quality_version": quality["version"],
             }
         )
     return title_batch

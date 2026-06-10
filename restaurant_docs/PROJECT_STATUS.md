@@ -2197,3 +2197,19 @@ project.json
 - WebUI 展示 3 张封面，用户可选择其中 1 张，选中状态高亮。
 - 未调用真实 RunningHub / LLM / DeepSeek / TTS，未生成音频或视频。
 - 第 4 阶段本轮交互修正已通过 fake 验收，可提交收口；不得写成第 5 阶段已开始。
+
+## 第 4 阶段：生成视频标题 count 参数阻塞修复
+
+- 用户浏览器发现点击 `生成视频标题` 报错：`build_high_quality_cover_titles() got an unexpected keyword argument 'count'`。
+- 已修复标题 helper 契约：
+  - `build_high_quality_cover_titles` 支持 `count: int = 6`。
+  - 默认返回 6 个标题文本，返回值为 `list[str]`。
+  - WebUI 将标题文本包装为候选 dict 并展示在按钮下方。
+- 本地 `count=6` smoke 通过：返回 6 个非空且去重标题。
+- 浏览器点击 `生成视频标题` 通过，不再出现 count 参数错误。
+- 浏览器验证标题可选择，点击 `生成视频文案` 后标题列表不刷新，已选标题不覆盖。
+- 30 / 40 / 50 / 60 秒文案字数规则仍通过。
+- fake RunningHub 3 封面 smoke 仍通过。
+- 未调用真实 RunningHub / LLM / DeepSeek / TTS，未生成音频或视频。
+- 未安装依赖，未修改依赖文件。
+- 当前仍停留第 4 阶段，未进入第 5 阶段。
