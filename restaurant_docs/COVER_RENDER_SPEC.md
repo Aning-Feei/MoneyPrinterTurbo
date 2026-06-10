@@ -208,3 +208,12 @@ FONT_FALLBACK_USED
   - 标题/提示词节点：`3.prompt`
   - 输出保存节点：`4.images`
 - 下载的 workflow JSON 只作为本机参考，不复制进仓库，也不提交 Git。
+
+## 第 4 阶段最终验收说明
+
+- `local_pillow` renderer 保留为第 4 阶段早期本地 contract 验证能力。
+- WebUI 当前封面 prototype 的主要真实外部 provider 是 RunningHub batch provider。
+- RunningHub 真实输出 parser 已修复，支持真实 status / outputs 的 string、list、dict 和 nested dict 结构。
+- 已使用历史 task 恢复下载 3 张真实封面到 `/private/tmp`，观测尺寸为 `943 x 1668`。
+- 第 5 阶段可以消费 `cover_batch_report` 和 WebUI selected cover 信息。
+- 第 5 阶段不得假设 `cover_image.png`、`cover_*.png` 或 RunningHub 真实图片尺寸固定为 `1080 x 1920`。

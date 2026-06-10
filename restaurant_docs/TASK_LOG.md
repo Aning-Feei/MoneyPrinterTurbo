@@ -2906,3 +2906,33 @@ restaurant_engine 最小兼容：
 - 不调用 DeepSeek、LLM、TTS、音频或视频生成。
 - 不修改 `app/`、`config.toml`、`storage/`、`resource/`。
 - 本轮暂不 commit。
+
+## 第 4 阶段：最终验收与 Contract Freeze
+
+任务目标：
+- 对第 4 阶段封面生成模块做最终验收和 contract freeze 文档收口。
+- 不新增 RunningHub task。
+- 不调用 DeepSeek、LLM、TTS 或非 RunningHub 外部 API。
+- 不生成音频或视频。
+
+收口内容：
+- 更新 `restaurant_docs/STAGE_4_ACCEPTANCE.md` 为最终验收版本。
+- 汇总 WebUI contract：
+  - 文案按钮只生成视频文案。
+  - 不展示标题候选。
+  - 生成封面按钮位于视频设置区。
+  - 图片少于 3 张时受控提示 / 不可点击。
+  - 成功后展示 3 张封面，用户选择 1 张，选中项高亮。
+- 汇总 RunningHub provider contract：
+  - workflow id：`2064397787445424129`
+  - image：`13.image`
+  - prompt：`3.prompt`
+  - output：`4.images`
+- 汇总 title / cover_prompt / aspect_ratio / cover_batch_report contract。
+- 记录 fake RunningHub、缺配置、parser fake response、真实 task 恢复结果。
+- 记录第 5 阶段可依赖字段和不得假设的能力。
+
+验收结论：
+- 第 4 阶段封面生成模块可以进入 contract freeze。
+- 第 5 阶段可以基于 selected cover 和 `cover_batch_report` 做下一步设计。
+- 当前 WebUI 仍为验证 prototype，不是最终正式产品。

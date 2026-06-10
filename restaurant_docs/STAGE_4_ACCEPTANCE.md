@@ -1,264 +1,298 @@
-# 第 4 阶段验收：封面生成 Contract 冻结
+# 第 4 阶段验收：封面生成模块 Contract Freeze
 
-本文件记录餐饮 AI 宣传视频生成系统第 4 阶段“封面生成模块”的收口验收结果。第 4 阶段产物将作为第 5 阶段“分镜脚本与口播文案生成”的输入 contract。
+本文件记录餐饮 AI 宣传视频生成系统第 4 阶段“封面生成模块”的最终验收边界。第 4 阶段产物用于支撑 MoneyPrinterTurbo 验证仓库中的封面生成 prototype，并作为第 5 阶段“分镜脚本与口播文案生成”的输入 contract。
 
-## 阶段范围
+## A. 阶段范围
 
 第 4 阶段已完成：
 
-- `theme_text` 到 3 个本地标题候选。
-- 支持用户通过 `selected_cover_title_id` / `selected_cover_title` 选择标题。
-- 无选择时默认 `title_1`。
-- 无效选择时 fallback 到 `title_1` 并记录 warning。
-- `selected_title.text` 作为封面主标题。
-- `cover_copy.title == selected_title.text`。
-- 从用户上传图片 contract 中选择封面候选图。
-- 输出 `cover_plan.json`。
-- 使用本地 Pillow / PIL 输出 `cover_image.png`。
-- 输出 `cover_render_report.json`。
-- 将 cover plan / cover render 摘要写入 `pipeline_report.json`。
-- 本地 smoke 验收。
+- 封面标题后台生成。
+- 本地标题质量规则。
+- `cover_prompt` 生成。
+- 视频比例接入。
+- RunningHub batch provider。
+- WebUI 生成 3 张封面并展示。
+- 用户选择 1 张封面。
+- fake RunningHub / AppTest 验证。
+- 缺配置受控失败。
+- RunningHub 真实 output parser 修复。
+- 使用已提交真实 task 恢复下载 3 张结果图。
+- 早期 `cover_plan.json` / `cover_render_report.json` / local Pillow renderer contract 保留为历史验证能力。
 
 第 4 阶段不包含：
 
-- AI 图片生成。
-- 真实视觉模型。
-- 真实图片内容理解。
-- DeepSeek 调用。
-- 外部 API 调用。
+- 第 5 阶段正式分镜脚本升级。
+- 正式口播文案生成。
 - TTS。
 - 音频生成。
 - 视频生成。
-- WebUI 改造。
-- Web 正式产品形态。
+- 图生视频。
+- 最终 Web 产品。
+- 用户系统。
+- 支付。
+- 部署。
 
-## 已完成提交
+## B. 已完成提交
 
 - `d517160 feat: add local cover plan contract`
 - `7bea98d feat: add local cover renderer`
+- `9c00e82 chore: freeze stage 4 contracts`
+- `a7ba09d feat: add restaurant cover webui prototype`
+- `142c8c9 fix: move cover generation button to video settings`
+- `16c6261 fix: keep restaurant cover script generation local`
+- `2aa4818 feat: add runninghub cover batch prototype`
+- `7a18109 feat: add runninghub cover prompts and ratio support`
+- `151859c fix: handle runninghub output parsing`
 
-## Cover Plan Contract
+## C. WebUI Contract
 
-第 5 阶段可以依赖 `cover_plan.json` 顶层字段：
+- 文案设置区域的 AI 视频文案按钮只生成视频文案。
+- WebUI 不展示标题候选。
+- WebUI 不提供标题选择 UI。
+- 标题只在点击 `生成封面` / `重新生成封面` 时后台生成。
+- 图片数量小于 3 张时，生成封面按钮不可点击或显示受控提示。
+- 图片数量达到 3 张后，生成封面按钮可点击。
+- 生成封面按钮位于中间列 `视频设置` 区域。
+- 生成封面按钮位于 `当前本地图片数量：X 张` 下方。
+- 生成期间显示 loading：`正在生成 3 张封面，请稍候...`。
+- 成功后展示 3 张封面。
+- 用户可选择 1 张封面。
+- 选中封面有高亮 / 描边状态。
+- 重新生成会刷新 batch，包括标题批次、随机图片和 3 张封面。
+
+WebUI 选择状态写入 session state：
+
+- `selected_cover_variant_id`
+- `selected_cover_image_path`
+- `selected_cover_title_text`
+- `selected_cover_source_image_path`
+
+## D. RunningHub Provider Contract
+
+- `provider=runninghub`
+- `workflow_provider=runninghub`
+- workflow URL：`https://www.runninghub.cn/workflow/2064397787445424129`
+- workflow ID：`2064397787445424129`
+- node mapping：
+  - image input：`13.image`
+  - prompt input：`3.prompt`
+  - output：`4.images`
+
+必需环境变量：
+
+- `RUNNINGHUB_API_KEY`
+- `RUNNINGHUB_COVER_WORKFLOW_ID`
+- `RUNNINGHUB_COVER_IMAGE_NODE_ID`
+- `RUNNINGHUB_COVER_TITLE_NODE_ID`
+
+建议环境变量：
+
+- `RUNNINGHUB_COVER_IMAGE_NODE_FIELD`
+- `RUNNINGHUB_COVER_TITLE_NODE_FIELD`
+- `RUNNINGHUB_COVER_OUTPUT_NODE_ID`
+- `RUNNINGHUB_COVER_OUTPUT_NODE_FIELD`
+
+可选环境变量：
+
+- `RUNNINGHUB_COVER_RATIO_NODE_ID`
+- `RUNNINGHUB_COVER_RATIO_NODE_FIELD`
+- `RUNNINGHUB_COVER_RATIO_16_9_VALUE`
+- `RUNNINGHUB_COVER_RATIO_9_16_VALUE`
+- `RUNNINGHUB_COVER_NODE_INFO_JSON`
+- `RUNNINGHUB_API_BASE`
+- `RUNNINGHUB_POLL_INTERVAL_SECONDS`
+- `RUNNINGHUB_TIMEOUT_SECONDS`
+- `RUNNINGHUB_COVER_UPLOAD_ENDPOINT`
+- `RUNNINGHUB_COVER_CREATE_ENDPOINT`
+- `RUNNINGHUB_COVER_STATUS_ENDPOINT`
+- `RUNNINGHUB_COVER_OUTPUTS_ENDPOINT`
+
+缺配置行为：
+
+- 受控失败。
+- 不调用 RunningHub。
+- 不 fallback 到 fake client。
+- 不 fallback 到 local Pillow。
+- 不调用 DeepSeek / LLM。
+- 不输出 API Key。
+- 不记录敏感 signed URL。
+
+## E. Title Contract
+
+- 标题后台生成。
+- WebUI 不展示标题候选。
+- 标题 provider 为 `local_static`。
+- 每批 3 条标题。
+- `batch_index` 可刷新标题批次。
+- 标题质量规则建议 6–16 个中文字符。
+
+禁用弱模板：
+
+- `值得一试`
+- `聚餐首选`
+- `发现这家`
+- `必吃`
+- `宝藏`
+- `绝了`
+
+禁止夸张承诺：
+
+- `全城第一`
+- `天花板`
+- `全网爆火`
+- `100% 好吃`
+- `不吃后悔`
+
+## F. Cover Prompt Contract
+
+- 每个 RunningHub task 都有 `cover_prompt`。
+- `cover_prompt` 包含：
+  - 风格要求。
+  - 标题文字。
+  - 比例。
+- RunningHub `3.prompt` 节点接收完整 `cover_prompt`。
+- 不提交裸标题。
+- 不使用 LLM 生成 prompt。
+- prompt 要求避免多余小字、二维码、电话、价格和夸张营销词。
+
+## G. Aspect Ratio Contract
+
+- 支持 `9:16`。
+- 支持 `16:9`。
+- 比例来自 WebUI 现有 `视频比例` 字段。
+- prompt 中必须包含比例。
+- ratio node 是可选配置。
+- 如果配置 `RUNNINGHUB_COVER_RATIO_NODE_ID` 和 `RUNNINGHUB_COVER_RATIO_NODE_FIELD`，provider 会提交独立比例节点。
+- 未配置 ratio node 时，不阻塞任务，比例写入 prompt，并记录：
+  - `RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY`
+
+## H. cover_batch_report Contract
+
+顶层字段至少包括：
 
 - `version`
-- `planner`
+- `provider`
+- `workflow_provider`
+- `workflow_id`
+- `image_node_id`
+- `image_node_field`
+- `title_node_id`
+- `title_node_field`
+- `output_node_id`
+- `output_node_field`
 - `external_api_called`
-- `render_status`
-- `cover_image_path`
-- `source_contracts`
-- `title_generation`
-- `title_candidates`
-- `selected_title`
-- `selected_assets`
-- `cover_copy`
-- `layout`
-- `quality_flags`
+- `batch_index`
+- `theme_text`
+- `aspect_ratio`
+- `prompt_style_version`
+- `title_quality_version`
+- `min_required_images`
+- `uploaded_image_count`
+- `selected_cover_variant_id`
+- `variants`
 - `warnings`
 - `blocking`
+- `cover_batch_report_path`
 
-关键子结构：
+`variants[]` 至少包括：
 
-- `title_generation.theme_text`
-- `title_generation.title_provider`
-- `title_generation.external_api_called`
-- `title_candidates[].title_id`
-- `title_candidates[].text`
-- `title_candidates[].source`
-- `title_candidates[].selected`
-- `selected_title.title_id`
-- `selected_title.text`
-- `selected_title.user_selected`
-- `selected_title.selection_source`
-- `selected_assets.primary_image_id`
-- `selected_assets.primary_image_path`
-- `selected_assets.primary_asset_group`
-- `selected_assets.selection_reason`
-- `selected_assets.user_selected_image`
-- `selected_assets.fallback_used`
-- `cover_copy.title`
-- `cover_copy.subtitle`
-- `cover_copy.cta`
-- `cover_copy.language`
-- `cover_copy.copy_source`
-- `layout.format`
-- `layout.safe_area`
-- `layout.text_zones`
-- `quality_flags.requires_human_review`
-- `quality_flags.content_based_understanding`
-- `quality_flags.uses_filename_fallback`
-- `quality_flags.has_primary_image`
-- `quality_flags.has_user_selected_title`
-
-当前固定语义：
-
-- `planner=local_static`
-- `external_api_called=false`
-- `title_generation.title_provider=local_static`
-- `cover_copy.title == selected_title.text`
-- `selected_assets.primary_image_path` 来自用户上传图片 contract。
-- `quality_flags.requires_human_review=true`
-- `cover_plan.render_status` 仍描述原始封面方案状态，不作为最终渲染结果来源。
-
-## Cover Render Contract
-
-第 5 阶段可以依赖 `cover_render_report.json` 顶层字段：
-
-- `version`
-- `renderer`
-- `external_api_called`
-- `render_status`
-- `cover_image_path`
-- `output_format`
-- `output_width`
-- `output_height`
-- `source_cover_plan_path`
-- `source_image_id`
-- `source_image_path`
+- `variant_id`
+- `title_id`
 - `title_text`
 - `title_source`
-- `used_font`
+- `title_quality_passed`
+- `title_quality_warnings`
+- `cover_prompt`
+- `prompt_source`
+- `aspect_ratio`
+- `source_image_path`
+- `source_image_name`
+- `runninghub_task_id`
+- `runninghub_status`
+- `remote_result_ref` 或脱敏 URL
+- `remote_result_url`
+- `local_cover_image_path`
+- `render_status`
+- `output_width`
+- `output_height`
+- `external_api_called`
 - `warnings`
-- `blocking`
 
-成功路径固定语义：
+安全要求：
 
-- `renderer=local_pillow`
-- `external_api_called=false`
-- `render_status=rendered`
-- `cover_image_path` 指向 `cover_image.png`
-- `output_format=png`
-- `output_width=1080`
-- `output_height=1920`
-- `source_image_id == cover_plan.selected_assets.primary_image_id`
-- `source_image_path == cover_plan.selected_assets.primary_image_path`
-- `title_text == cover_plan.selected_title.text`
-- `title_source=selected_title`
-- `blocking=false`
+- report 不得写入 API Key。
+- report 不得写入 Authorization header。
+- report 不得写入 Bearer token。
+- report 不得写入敏感 signed query。
 
-异常路径已文档化：
+## I. 测试结果
 
-- `TITLE_MISMATCH`
-- `SOURCE_IMAGE_NOT_FOUND`
-- `SOURCE_IMAGE_NOT_IN_CONTRACT`
-- `PIL_UNAVAILABLE`
-- `FONT_FALLBACK_USED`
+- fake RunningHub AppTest：通过。
+- `9:16` payload：通过。
+- `16:9` payload：通过。
+- 缺配置测试：通过。
+- parser fake response tests：通过。
+- RunningHub 真实 task 恢复：通过。
+- 3 个真实 task 均为 `succeeded`：
+  - `2064568458020081665`
+  - `2064568466555494401`
+  - `2064568474776334338`
+- 3 张真实图片已下载到 `/private/tmp`。
+- 真实图片尺寸：`943 x 1668`。
+- 未提交新 RunningHub task。
+- 未产生仓库内 output。
+- 未调用 DeepSeek / LLM / TTS。
+- 未生成音频或视频。
 
-## Output Contract
+## J. 第 5 阶段可依赖字段
 
-第 4 阶段成功路径输出：
+第 5 阶段可以依赖：
 
-- `image_understanding.json`
-- `rule_engine_report.json`
-- `cover_plan.json`
-- `cover_render_report.json`
-- `cover_image.png`
-- `storyboard.json`
-- `narration_plan.json`
-- `pipeline_report.json`
+- `cover_batch_report.variants[*].title_text`
+- `cover_batch_report.variants[*].cover_prompt`
+- `cover_batch_report.variants[*].aspect_ratio`
+- `cover_batch_report.variants[*].local_cover_image_path`
+- `cover_batch_report.variants[*].render_status`
+- `cover_batch_report.selected_cover_variant_id`
+- pipeline / WebUI 记录的 selected cover 信息。
+- WebUI 当前视频文案文本。
+- 用户上传图片列表。
+- 视频比例字段。
+- 早期本地 contract 中的 `cover_plan.selected_title.text`。
+- 早期本地 contract 中的 `cover_render_report.cover_image_path`。
 
-`cover_image.png` 当前为本地 Pillow 渲染图片：
-
-- PNG
-- 1080 x 1920
-- 9:16
-
-## pipeline_report Cover 字段
-
-第 5 阶段可以依赖 `pipeline_report.json` 中的 cover plan 字段：
-
-- `cover_plan_path`
-- `cover_planner`
-- `cover_external_api_called`
-- `cover_render_status`
-- `cover_image_path`
-- `cover_selected_image_id`
-- `cover_selected_title`
-- `cover_title_candidates_count`
-- `cover_title_user_selected`
-- `cover_requires_human_review`
-- `cover_blocking`
-
-第 5 阶段可以依赖 `pipeline_report.json` 中的 cover render 字段：
-
-- `cover_render_report_path`
-- `cover_renderer`
-- `cover_render_external_api_called`
-- `cover_rendered_image_path`
-- `cover_render_output_width`
-- `cover_render_output_height`
-- `cover_render_source_image_id`
-- `cover_render_title_text`
-- `cover_render_blocking`
-
-## 第 5 阶段可依赖字段
-
-第 5 阶段可以消费：
-
-- `cover_plan.selected_title.text`
-- `cover_plan.cover_copy.title`
-- `cover_plan.title_candidates`
-- `cover_plan.selected_assets.primary_image_id`
-- `cover_plan.selected_assets.primary_image_path`
-- `cover_render_report.cover_image_path`
-- `cover_render_report.title_text`
-- `cover_render_report.source_image_id`
-- `cover_render_report.output_width`
-- `cover_render_report.output_height`
-- `pipeline_report.cover_rendered_image_path`
-- `pipeline_report.cover_render_title_text`
-
-第 5 阶段应优先使用 `cover_render_report` / `pipeline_report` 中的渲染结果判断真实封面图状态，不应假设 `cover_plan.cover_image_path` 已回写。
-
-## 第 5 阶段不得假设
+## K. 第 5 阶段不得假设
 
 第 5 阶段不得假设：
 
-- 已经有真实图片内容理解。
-- `detected_type` 一定准确。
-- `filename_fallback` 是正式分类能力。
-- `cover_image.png` 是 AI 生成图片。
-- 可以调用外部 API。
 - 可以调用 DeepSeek。
+- 可以调用 LLM。
 - 可以调用 TTS。
 - 可以生成音频。
 - 可以生成视频。
-- 可以改 WebUI。
+- 可以直接进入正式产品。
+- cover image 一定是 `1080 x 1920`。
+- RunningHub 真实输出尺寸固定。
+- `filename_fallback` 是正式视觉理解。
+- 已经接入真实视觉模型。
 - WebUI 是最终产品。
-- `requires_human_review=false`。
-
-## Smoke Test 摘要
-
-第 4 阶段 contract freeze 验收覆盖：
-
-- 默认 `mock` provider + `selected_cover_title_id`：通过。
-- 默认 `mock` provider + 无用户选择标题：通过。
-- 默认 `mock` provider + 无效标题选择：通过。
-- `filename_fallback` provider：通过。
-- `vision` 未授权：受控失败。
-- `vision --allow-external-api` 当前未实现：受控失败。
-- `cover_image.png` 存在性 / PNG / 1080 x 1920：通过。
-- `python3 -m compileall restaurant_engine`：通过。
-- `.venv/bin/python -m compileall restaurant_engine`：通过。
-- 当前仓库无 `tests/` 目录，未执行 pytest。
-
-所有 smoke test 均使用 mock planner，不使用 DeepSeek planner，不调用外部 API，不调用 TTS，不生成音频，不生成视频。封面图片只生成在仓库外 `/private/tmp` smoke output 中。
+- RunningHub 每次都一定返回 3 张可用图片。
+- RunningHub URL / output schema 永远不变。
 
 ## 已知限制
 
-- 当前封面是本地 Pillow 渲染，不是 AI 生成。
-- 当前封面设计很基础，只用于 contract 联调。
-- 当前依赖第 3 阶段非真实视觉 contract。
-- 当前 `requires_human_review=true`。
-- 当前未生成音频。
-- 当前未生成视频。
-- 当前未接 TTS。
-- 当前未接真实视觉模型。
+- WebUI 仍是 MoneyPrinterTurbo 验证仓库中的临时 prototype，不是最终产品。
+- RunningHub 真实输出尺寸目前观测为 `943 x 1668`，不是固定 contract。
+- 标题仍为本地 `local_static`，不是真实营销标题模型。
+- 图片理解仍未接入真实视觉模型。
+- 第 4 阶段不生成音频或视频。
+- 真实 RunningHub 调用需要用户显式配置环境变量并授权。
 
-## 进入第 5 阶段条件
+## 是否可以进入第 5 阶段
 
-- 第 4 阶段 contract freeze 验收通过。
-- 第 5 阶段只消费本文件列出的现有 contract 字段。
-- 第 5 阶段默认仍不调用外部 API。
-- 第 5 阶段不得把 `filename_fallback` 当作正式图片内容理解。
-- 第 5 阶段不得把 `cover_image.png` 当作 AI 图片生成结果。
+可以进入第 5 阶段准备，但第 5 阶段必须继续遵守：
+
+- 默认不调用外部 API。
+- 不默认调用 DeepSeek / LLM / TTS。
+- 不把 WebUI prototype 当最终产品。
+- 使用第 4 阶段冻结的 `cover_batch_report` / selected cover 字段作为输入 contract。

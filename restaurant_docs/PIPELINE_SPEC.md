@@ -744,3 +744,16 @@ RunningHub 封面 prompt 和比例 contract：
 - 不写入 `storage/`。
 - 不写入 `resource/`。
 - 不把上传图片或 output 产物写入仓库源码目录。
+
+第 4 阶段最终验收：
+
+- RunningHub fake / mock 测试通过。
+- 缺配置受控失败通过。
+- 真实 task output parser 已修复。
+- 3 个历史真实 task 均恢复为 `succeeded` 并下载到 `/private/tmp`：
+  - `2064568458020081665`
+  - `2064568466555494401`
+  - `2064568474776334338`
+- 真实输出观测尺寸为 `943 x 1668`，第 5 阶段不得假设 RunningHub 输出尺寸固定。
+- 第 5 阶段可依赖 `cover_batch_report.variants[*].title_text`、`cover_prompt`、`aspect_ratio`、`local_cover_image_path`、`render_status` 和 `selected_cover_variant_id`。
+- 第 5 阶段仍不得默认调用 DeepSeek、LLM、TTS、图生视频或视频生成。

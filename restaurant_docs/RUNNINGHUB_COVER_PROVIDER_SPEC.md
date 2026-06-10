@@ -274,3 +274,22 @@ RATIO_NODE_NOT_CONFIGURED_PROMPT_ONLY
 - 本地 Pillow renderer 可保留为历史模块，但 WebUI `生成封面` 不使用 Pillow 结果冒充 RunningHub。
 - Mock / fake client 只用于 AppTest，不作为缺配置 fallback。
 - 当前不提交生成图片和 report。
+
+## 第 4 阶段最终验收状态
+
+- workflow URL：`https://www.runninghub.cn/workflow/2064397787445424129`
+- workflow ID：`2064397787445424129`
+- 节点映射已冻结：
+  - image：`13.image`
+  - prompt：`3.prompt`
+  - output：`4.images`
+- fake RunningHub / AppTest 已通过。
+- 缺配置受控失败已通过。
+- 真实 task output parser 已修复，兼容 `data: "SUCCESS"` 和 `data: [{"fileUrl": "..."}]`。
+- 已使用 3 个历史 task id 恢复下载真实结果，不新增 task：
+  - `2064568458020081665`
+  - `2064568466555494401`
+  - `2064568474776334338`
+- 3 个真实 task 均为 `succeeded`。
+- 真实图片已下载到 `/private/tmp`，观测尺寸为 `943 x 1668`。
+- report 不写入 API Key、Authorization、Bearer 或敏感 signed query。

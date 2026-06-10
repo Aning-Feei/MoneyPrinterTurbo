@@ -2144,3 +2144,22 @@ project.json
 - 新增 RunningHub parser 单元测试，覆盖真实响应结构和 string output fallback。
 - 本轮只查询已有 task，不新增 RunningHub task，不调用 DeepSeek / LLM / TTS，不生成音频或视频。
 - 未修改 `app/`、`config.toml`、`storage/`、`resource/`。
+
+## 第 4 阶段：最终验收与 Contract Freeze
+
+- 第 4 阶段封面生成模块进入最终验收收口。
+- 新增/更新 `restaurant_docs/STAGE_4_ACCEPTANCE.md`，记录最终能力边界和第 5 阶段输入 contract。
+- 已验收能力：
+  - cover plan contract。
+  - local Pillow cover renderer contract。
+  - WebUI 3 张封面展示和选择 prototype。
+  - RunningHub batch provider。
+  - `cover_prompt` 和 `aspect_ratio` contract。
+  - `cover_batch_report` contract。
+  - fake RunningHub / AppTest。
+  - 缺配置受控失败。
+  - 真实 RunningHub output parser 修复。
+  - 使用历史真实 task 恢复下载 3 张封面。
+- 本轮不新增 RunningHub task，不调用 DeepSeek / LLM / TTS，不生成音频或视频。
+- 第 5 阶段可以基于 `cover_batch_report`、selected cover 信息、WebUI 视频文案、上传图片列表和视频比例继续设计。
+- 第 5 阶段不得假设 WebUI 是最终产品，也不得假设 RunningHub 输出尺寸固定。
